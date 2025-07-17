@@ -10,7 +10,7 @@ repos:
 
       - id: phpstan
         name: PHPStan
-        entry: docker compose exec -T php-app vendor/bin/phpstan analyse src tests --level=8
+        entry: docker compose exec -T php-app php -d memory_limit=512M vendor/bin/phpstan analyse src tests --level=8
         language: system
         files: \.php$
         pass_filenames: false
