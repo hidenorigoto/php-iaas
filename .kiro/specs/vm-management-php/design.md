@@ -6,27 +6,33 @@ libvirt-phpモジュールを使用してVMの作成・起動を同時に行う�
 
 ## アーキテクチャ
 
-### システム構成
+### システム構成（Docker環境）
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Web Interface │────│  PHP Application │────│   libvirt API   │
-│   (Simple Form)  │    │   (Core Logic)   │    │  (VM Management) │
+│   (Slim Routes)  │    │  (Docker Container) │    │ (libvirt-mock)  │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
                                 │
                                 │
                         ┌─────────────────┐
-                        │   File System   │
-                        │ (VM Images/Logs) │
+                        │   Monolog       │
+                        │   (Logging)     │
                         └─────────────────┘
 ```
 
+### Docker構成
+
+- **php-app**: メインアプリケーション（PHP 8.1 + libvirt-php）
+- **libvirt-mock**: libvirtデーモンとOpenVSwitch環境
+- **共有ボリューム**: `/var/run/libvirt` でlibvirt通信
+
 ### レイヤー構造
 
-1. **プレゼンテーション層**: シンプルなHTMLフォームとレスポンス表示
+1. **プレゼンテーション層**: Slim Framework REST API
 2. **ビジネスロジック層**: VM作成・起動・管理ロジック
 3. **データアクセス層**: libvirt-php APIとの連携
-4. **インフラ層**: ファイルシステム、ログ管理
+4. **インフラ層**: Monologによるログ管理、Docker環境
 
 ## コンポーネントと インターフェース
 
@@ -124,76 +130,35 @@ const USER_VLAN_MAP = [
 ];
 ```
 
-#### OpenVSwitchを使用したVLANネットワーク設定
+#### 簡素化されたVLANネットワーク設定（Docker環境）
 
 ```xml
-<!-- OpenVSwitch管理VM -->
-<domain type='kvm'>
-  <name>openvswitch-manager</name>
-  <memory unit='KiB'>1048576</memory>
-  <vcpu placement='static'>2</vcpu>
-  <devices>
-    <interface type='bridge'>
-      <source bridge='ovs-br0'/>
-      <model type='virtio'/>
-    </interface>
-  </devices>
-</domain>
-
-<!-- OpenVSwitchブリッジネットワーク -->
+<!-- 基本ネットワーク設定 -->
 <network>
-  <name>ovs-network</name>
-  <forward mode='bridge'/>
-  <bridge name='ovs-br0'/>
-  <virtualport type='openvswitch'/>
+  <name>vm-network-{vlan_id}</name>
+  <bridge name='virbr{vlan_id}'/>
+  <forward mode='nat'/>
+  <ip address='192.168.{vlan_id}.1' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='192.168.{vlan_id}.10' end='192.168.{vlan_id}.100'/>
+    </dhcp>
+  </ip>
 </network>
 
-<!-- ユーザー毎のVLANポート設定 -->
-<!-- user1: VLAN 100 -->
-<interface type='bridge'>
-  <source bridge='ovs-br0'/>
-  <virtualport type='openvswitch'>
-    <parameters interfaceid='vm-user1-001'/>
-  </virtualport>
-  <vlan>
-    <tag id='100'/>
-  </vlan>
-</interface>
-
-<!-- user2: VLAN 101 -->
-<interface type='bridge'>
-  <source bridge='ovs-br0'/>
-  <virtualport type='openvswitch'>
-    <parameters interfaceid='vm-user2-001'/>
-  </virtualport>
-  <vlan>
-    <tag id='101'/>
-  </vlan>
-</interface>
-
-<!-- user3: VLAN 102 -->
-<interface type='bridge'>
-  <source bridge='ovs-br0'/>
-  <virtualport type='openvswitch'>
-    <parameters interfaceid='vm-user3-001'/>
-  </virtualport>
-  <vlan>
-    <tag id='102'/>
-  </vlan>
+<!-- VM用ネットワークインターフェース -->
+<interface type='network'>
+  <source network='vm-network-{vlan_id}'/>
+  <model type='virtio'/>
 </interface>
 ```
 
-#### OpenVSwitchフロールール設定
+#### ネットワーク分離の実装
 
-```bash
-# VLAN間通信を禁止するフロールール
-ovs-ofctl add-flow ovs-br0 "table=0,priority=100,dl_vlan=100,actions=normal"
-ovs-ofctl add-flow ovs-br0 "table=0,priority=100,dl_vlan=101,actions=normal"
-ovs-ofctl add-flow ovs-br0 "table=0,priority=100,dl_vlan=102,actions=normal"
-ovs-ofctl add-flow ovs-br0 "table=0,priority=50,dl_vlan=100,dl_dst=*,actions=drop"
-ovs-ofctl add-flow ovs-br0 "table=0,priority=50,dl_vlan=101,dl_dst=*,actions=drop"
-ovs-ofctl add-flow ovs-br0 "table=0,priority=50,dl_vlan=102,dl_dst=*,actions=drop"
-```
+- user1: 192.168.100.0/24 (VLAN 100相当)
+- user2: 192.168.101.0/24 (VLAN 101相当)  
+- user3: 192.168.102.0/24 (VLAN 102相当)
+- 各ネットワークは独立したlibvirtネットワークとして作成
+- Docker環境では簡素化されたNATベースの分離を使用
 
 #### 必要なディレクトリ構造
 

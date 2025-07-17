@@ -1,33 +1,29 @@
 # 実装計画
 
-- [x] 1. プロジェクト初期化とGitHub連携セットアップ
-  - GitHubリポジトリの作成とクローン
-  - 各実装タスクに対応するGitHub Issueの作成
-  - pre-commitフック設定（PHPStan、PHP-CS-Fixer、PHPUnit）
-  - GitHub Actions CI/CDパイプラインの設定
-  - Conventional Commitsの設定とコミットメッセージテンプレート作成
+- [x] 1. プロジェクト基盤セットアップ
+  - PHPプロジェクトの基本構造作成（composer.json、autoloading設定）
+  - Docker環境の構築（Dockerfile、docker-compose.yml）
+  - 開発ツールの設定（PHPUnit、PHPStan、PHP-CS-Fixer）
+  - pre-commitフック設定とGit設定
+  - 基本的なテストクラスとサンプルコードの作成
   - **完了条件**:
-    - GitHubリポジトリが作成され、適切なREADME.mdが存在すること
-    - 全実装タスクに対応するGitHub Issueが作成されていること
-    - `pre-commit install`が成功し、コミット時にフックが実行されること
-    - GitHub Actionsワークフローファイルが作成され、基本的なCI/CDが動作すること
-    - コミットメッセージがConventional Commits形式で検証されること
-  - _要件: 7.1, 7.2, 7.3, 7.4, 7.5_
+    - `docker-compose up -d` でPHP環境が起動すること
+    - `docker-compose exec php-app composer install` が成功すること
+    - `docker-compose exec php-app composer test` でテストが実行されること
+    - 基本的なPSR-4オートローディングが動作すること
+  - _要件: 2.1, 2.2, 2.3, 2.4_
 
-- [ ] 2. Docker開発環境とプロジェクト構造のセットアップ
-  - Docker Composeを使用したlibvirt開発環境の構築
-  - UbuntuベースのDockerコンテナでlibvirt-phpをセットアップ
-  - Composerを使用したSlimフレームワークのインストール
-  - PHPプロジェクトの基本ディレクトリ構造を作成
-  - SimpleVMデータクラスを実装
+- [ ] 2. 基本データクラスとVM管理クラスの実装
+  - SimpleVMデータクラスの実装（VM情報とSSH情報を保持）
   - VMManagerクラスの基本構造を作成
+  - Monologを使用したログ機能の基本実装
+  - 基本的なバリデーション機能の実装
   - **完了条件**: 
-    - `docker-compose up`でlibvirt環境が起動すること
-    - `composer install`が成功すること
-    - PHPUnitとMockeryライブラリがインストールされること
-    - SimpleVMクラスのユニットテストが通ること
+    - SimpleVMクラスが正しくインスタンス化され、プロパティが設定できること
     - VMManagerクラスのインスタンス化テストが通ること
-  - _要件: 1.2, 4.1_
+    - Monologによるログ出力が正しく動作すること
+    - 基本的な入力バリデーション（ユーザー名、VM名等）のテストが通ること
+  - _要件: 1.2, 8.1, 8.3_
 
 - [ ] 3. libvirt-php接続機能の実装
   - `libvirt_connect()`を使用した接続機能を実装
@@ -53,18 +49,17 @@
     - `VMManager->createDiskVolume()`メソッドが成功時にボリュームパスを返すことをモックテストで確認
   - _要件: 1.2, 1.1_
 
-- [ ] 5. OpenVSwitchを使用したVLANネットワーク管理機能の実装
-  - 初回VM作成時のOpenVSwitch管理VM自動作成機能を実装
-  - OpenVSwitchブリッジ（ovs-br0）の作成と設定
-  - user1、user2、user3用の固定VLAN（100、101、102）設定
-  - VLAN間通信を禁止するOpenVSwitchフロールールの設定
-  - `libvirt_network_define_xml()`を使用したOpenVSwitchネットワーク作成
+- [ ] 5. 簡素化されたVLANネットワーク管理機能の実装
+  - user1、user2、user3用の独立したlibvirtネットワーク作成
+  - 各ユーザーに固定IPレンジ割り当て（192.168.100.x, 192.168.101.x, 192.168.102.x）
+  - `libvirt_network_define_xml()`を使用したネットワーク作成
+  - ネットワーク分離の実装（NATベース）
   - **完了条件**:
-    - `libvirt_network_define_xml()`をモック化したOpenVSwitchネットワーク作成のユニットテストが通ること
-    - `exec()`関数をモック化し、`ovs-vsctl`、`ovs-ofctl`コマンドの実行ロジックのテストが通ること
-    - モック化されたOpenVSwitchコマンドでVLAN分離ルール設定のテストが通ること
-    - 各ユーザー用VLAN（100、101、102）のネットワーク定義XML生成のテストが通ること
-  - _要件: 5.1, 5.2, 5.3, 5.4, 5.5_
+    - `libvirt_network_define_xml()`をモック化したネットワーク作成のユニットテストが通ること
+    - 各ユーザー用ネットワーク（vm-network-100, vm-network-101, vm-network-102）のXML生成テストが通ること
+    - ネットワーク作成・起動ロジックのモックテストが通ること
+    - ユーザー毎のIPレンジ割り当てロジックのテストが通ること
+  - _要件: 5.1, 5.2, 5.3, 5.4, 5.5, 6.1, 6.2, 6.3_
 
 - [ ] 6. VM設定XML生成機能の実装
   - VM作成用のXML設定テンプレートを作成
@@ -104,14 +99,15 @@
 
 - [ ] 9. エラーハンドリングとログ機能の実装
   - 包括的なエラーハンドリング機能を実装
-  - ログ記録機能を追加
+  - Monologを使用したログ記録機能を追加
   - libvirtエラーの適切な処理とメッセージ変換
+  - 入力バリデーションエラーの処理
   - **完了条件**:
     - エラーハンドリングのユニットテストが通ること
-    - ログファイルが正しく作成され、エラー情報が記録されることをテストで確認
-    - libvirtエラー発生時に適切な日本語エラーメッセージが返されることをテストで確認
+    - Monologによるログファイルが正しく作成され、エラー情報が記録されることをテストで確認
+    - libvirtエラー発生時に適切なエラーメッセージが返されることをテストで確認
     - 無効なパラメータ入力時にバリデーションエラーが返されることをテストで確認
-  - _要件: 7.1, 7.2, 7.3, 7.4_
+  - _要件: 8.1, 8.2, 8.3, 8.4_
 
 - [ ] 10. SlimフレームワークでのWebインターフェース作成
   - Slimルーティングの設定とAPIエンドポイント作成
