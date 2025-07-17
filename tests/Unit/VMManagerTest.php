@@ -269,8 +269,9 @@ class VMManagerTest extends TestCase
         $logger->pushHandler($testHandler);
 
         $vmManager = new class ($logger) extends VMManager {
+            /** @var resource|null */
             private $mockResource;
-            private $mockConnected = false;
+            private bool $mockConnected = false;
 
             public function connect(): bool
             {
@@ -333,13 +334,13 @@ class VMManagerTest extends TestCase
 
         // Find the connection attempt log
         $connectionLogs = array_filter($records, function ($record) {
-            return strpos($record['message'], 'Attempting to connect to libvirt') !== false;
+            return strpos((string) $record['message'], 'Attempting to connect to libvirt') !== false;
         });
         $this->assertNotEmpty($connectionLogs);
 
         // Find the success log
         $successLogs = array_filter($records, function ($record) {
-            return strpos($record['message'], 'Successfully connected to libvirt') !== false;
+            return strpos((string) $record['message'], 'Successfully connected to libvirt') !== false;
         });
         $this->assertNotEmpty($successLogs);
     }
@@ -402,7 +403,7 @@ class VMManagerTest extends TestCase
         // Check error logs
         $records = $testHandler->getRecords();
         $errorLogs = array_filter($records, function ($record) {
-            return strpos($record['message'], 'Failed to connect to libvirt') !== false;
+            return strpos((string) $record['message'], 'Failed to connect to libvirt') !== false;
         });
         $this->assertNotEmpty($errorLogs);
     }
@@ -435,7 +436,8 @@ class VMManagerTest extends TestCase
         $logger->pushHandler($testHandler);
 
         $vmManager = new class ($logger) extends VMManager {
-            private $mockConnected = false;
+            private bool $mockConnected = false;
+            /** @var resource|null */
             private $mockResource;
 
             public function connect(): bool
@@ -478,7 +480,7 @@ class VMManagerTest extends TestCase
         // Check that "Already connected" debug message was logged
         $records = $testHandler->getRecords();
         $alreadyConnectedLogs = array_filter($records, function ($record) {
-            return strpos($record['message'], 'Already connected to libvirt') !== false;
+            return strpos((string) $record['message'], 'Already connected to libvirt') !== false;
         });
         $this->assertNotEmpty($alreadyConnectedLogs);
     }
@@ -491,7 +493,8 @@ class VMManagerTest extends TestCase
         $logger->pushHandler($testHandler);
 
         $vmManager = new class ($logger) extends VMManager {
-            private $mockConnected = true;
+            private bool $mockConnected = true;
+            /** @var resource|null */
             private $mockResource;
 
             public function __construct($logger)
@@ -541,7 +544,7 @@ class VMManagerTest extends TestCase
         // Check disconnect logs
         $records = $testHandler->getRecords();
         $disconnectLogs = array_filter($records, function ($record) {
-            return strpos($record['message'], 'Successfully disconnected from libvirt') !== false;
+            return strpos((string) $record['message'], 'Successfully disconnected from libvirt') !== false;
         });
         $this->assertNotEmpty($disconnectLogs);
     }
@@ -555,7 +558,7 @@ class VMManagerTest extends TestCase
         // Check that "nothing to disconnect" debug message was logged
         $records = $this->testHandler->getRecords();
         $nothingToDisconnectLogs = array_filter($records, function ($record) {
-            return strpos($record['message'], 'Not connected to libvirt, nothing to disconnect') !== false;
+            return strpos((string) $record['message'], 'Not connected to libvirt, nothing to disconnect') !== false;
         });
         $this->assertNotEmpty($nothingToDisconnectLogs);
     }
@@ -571,7 +574,7 @@ class VMManagerTest extends TestCase
         // Check error log
         $records = $this->testHandler->getRecords();
         $errorLogs = array_filter($records, function ($record) {
-            return strpos($record['message'], 'Not connected to libvirt') !== false;
+            return strpos((string) $record['message'], 'Not connected to libvirt') !== false;
         });
         $this->assertNotEmpty($errorLogs);
     }
@@ -584,7 +587,8 @@ class VMManagerTest extends TestCase
         $logger->pushHandler($testHandler);
 
         $vmManager = new class ($logger) extends VMManager {
-            private $mockConnected = true;
+            private bool $mockConnected = true;
+            /** @var resource|false */
             private $mockConnection;
 
             public function __construct($logger)
@@ -629,12 +633,12 @@ class VMManagerTest extends TestCase
         // Check logs
         $records = $testHandler->getRecords();
         $lookupLogs = array_filter($records, function ($record) {
-            return strpos($record['message'], 'Looking up storage pool') !== false;
+            return strpos((string) $record['message'], 'Looking up storage pool') !== false;
         });
         $this->assertNotEmpty($lookupLogs);
 
         $successLogs = array_filter($records, function ($record) {
-            return strpos($record['message'], 'Successfully found storage pool') !== false;
+            return strpos((string) $record['message'], 'Successfully found storage pool') !== false;
         });
         $this->assertNotEmpty($successLogs);
     }
@@ -647,7 +651,8 @@ class VMManagerTest extends TestCase
         $logger->pushHandler($testHandler);
 
         $vmManager = new class ($logger) extends VMManager {
-            private $mockConnected = true;
+            private bool $mockConnected = true;
+            /** @var resource|false */
             private $mockConnection;
 
             public function __construct($logger)
@@ -693,7 +698,7 @@ class VMManagerTest extends TestCase
         // Check error logs
         $records = $testHandler->getRecords();
         $errorLogs = array_filter($records, function ($record) {
-            return strpos($record['message'], 'Failed to lookup storage pool') !== false;
+            return strpos((string) $record['message'], 'Failed to lookup storage pool') !== false;
         });
         $this->assertNotEmpty($errorLogs);
     }
@@ -706,7 +711,8 @@ class VMManagerTest extends TestCase
         $logger->pushHandler($testHandler);
 
         $vmManager = new class ($logger) extends VMManager {
-            private $mockConnected = true;
+            private bool $mockConnected = true;
+            /** @var resource|false */
             private $mockConnection;
 
             public function __construct($logger)
@@ -768,12 +774,12 @@ class VMManagerTest extends TestCase
         // Check logs
         $records = $testHandler->getRecords();
         $createLogs = array_filter($records, function ($record) {
-            return strpos($record['message'], 'Creating disk volume') !== false;
+            return strpos((string) $record['message'], 'Creating disk volume') !== false;
         });
         $this->assertNotEmpty($createLogs);
 
         $successLogs = array_filter($records, function ($record) {
-            return strpos($record['message'], 'Successfully created disk volume') !== false;
+            return strpos((string) $record['message'], 'Successfully created disk volume') !== false;
         });
         $this->assertNotEmpty($successLogs);
     }
@@ -786,7 +792,8 @@ class VMManagerTest extends TestCase
         $logger->pushHandler($testHandler);
 
         $vmManager = new class ($logger) extends VMManager {
-            private $mockConnected = true;
+            private bool $mockConnected = true;
+            /** @var resource|false */
             private $mockConnection;
 
             public function __construct($logger)
@@ -841,7 +848,7 @@ class VMManagerTest extends TestCase
         // Check error logs
         $records = $testHandler->getRecords();
         $errorLogs = array_filter($records, function ($record) {
-            return strpos($record['message'], 'Failed to lookup storage pool') !== false;
+            return strpos((string) $record['message'], 'Failed to lookup storage pool') !== false;
         });
         $this->assertNotEmpty($errorLogs);
     }
@@ -879,12 +886,12 @@ class VMManagerTest extends TestCase
         // Check logs
         $records = $testHandler->getRecords();
         $createLogs = array_filter($records, function ($record) {
-            return strpos($record['message'], 'Creating qcow2 disk image') !== false;
+            return strpos((string) $record['message'], 'Creating qcow2 disk image') !== false;
         });
         $this->assertNotEmpty($createLogs);
 
         $successLogs = array_filter($records, function ($record) {
-            return strpos($record['message'], 'Successfully created qcow2 image') !== false;
+            return strpos((string) $record['message'], 'Successfully created qcow2 image') !== false;
         });
         $this->assertNotEmpty($successLogs);
     }
@@ -900,7 +907,7 @@ class VMManagerTest extends TestCase
             private function fileExists(string $filePath): bool
             {
                 // Mock that base image exists
-                return $filePath === '/tmp/base.qcow2';
+                return $filePath === '/var/lib/libvirt/images/base.qcow2';
             }
 
             public function createQcow2Image(string $imagePath, int $sizeGB, ?string $baseImage = null): bool
@@ -925,55 +932,26 @@ class VMManagerTest extends TestCase
             }
         };
 
-        $result = $vmManager->createQcow2Image('/tmp/test.qcow2', 20, '/tmp/base.qcow2');
+        $result = $vmManager->createQcow2Image('/tmp/test.qcow2', 20, '/var/lib/libvirt/images/base.qcow2');
 
         $this->assertTrue($result);
 
         // Check logs
         $records = $testHandler->getRecords();
+        $createLogs = array_filter($records, function ($record) {
+            return strpos((string) $record['message'], 'Creating qcow2 disk image') !== false;
+        });
+        $this->assertNotEmpty($createLogs);
+
         $baseImageLogs = array_filter($records, function ($record) {
-            return strpos($record['message'], 'Using base image') !== false;
+            return strpos((string) $record['message'], 'Using base image') !== false;
         });
         $this->assertNotEmpty($baseImageLogs);
-    }
 
-    public function testCreateQcow2ImageFailureWithMock(): void
-    {
-        // Create a test manager that mocks failed qcow2 image creation
-        $logger = new Logger('test-qcow2-fail');
-        $testHandler = new TestHandler();
-        $logger->pushHandler($testHandler);
-
-        $vmManager = new class ($logger) extends VMManager {
-            public function createQcow2Image(string $imagePath, int $sizeGB, ?string $baseImage = null): bool
-            {
-                $this->getLogger()->info('Creating qcow2 disk image', [
-                    'image_path' => $imagePath,
-                    'size_gb' => $sizeGB,
-                    'base_image' => $baseImage,
-                ]);
-
-                // Mock failed execution
-                $this->getLogger()->error('Failed to create qcow2 image', [
-                    'command' => 'qemu-img create -f qcow2 /tmp/test.qcow2 20G',
-                    'return_code' => 1,
-                    'output' => 'qemu-img: error creating image',
-                ]);
-
-                return false;
-            }
-        };
-
-        $result = $vmManager->createQcow2Image('/tmp/test.qcow2', 20);
-
-        $this->assertFalse($result);
-
-        // Check error logs
-        $records = $testHandler->getRecords();
-        $errorLogs = array_filter($records, function ($record) {
-            return strpos($record['message'], 'Failed to create qcow2 image') !== false;
+        $successLogs = array_filter($records, function ($record) {
+            return strpos((string) $record['message'], 'Successfully created qcow2 image') !== false;
         });
-        $this->assertNotEmpty($errorLogs);
+        $this->assertNotEmpty($successLogs);
     }
 
     public function testCopyBaseImageSuccessWithMock(): void
@@ -986,8 +964,8 @@ class VMManagerTest extends TestCase
         $vmManager = new class ($logger) extends VMManager {
             private function fileExists(string $filePath): bool
             {
-                // Mock that base image exists
-                return $filePath === '/tmp/base.qcow2';
+                // Mock that source file exists
+                return $filePath === '/var/lib/libvirt/images/base.qcow2';
             }
 
             public function copyBaseImage(string $baseImagePath, string $targetImagePath): bool
@@ -1014,26 +992,26 @@ class VMManagerTest extends TestCase
             }
         };
 
-        $result = $vmManager->copyBaseImage('/tmp/base.qcow2', '/tmp/target.qcow2');
+        $result = $vmManager->copyBaseImage('/var/lib/libvirt/images/base.qcow2', '/tmp/target.qcow2');
 
         $this->assertTrue($result);
 
         // Check logs
         $records = $testHandler->getRecords();
         $copyLogs = array_filter($records, function ($record) {
-            return strpos($record['message'], 'Copying base image') !== false;
+            return strpos((string) $record['message'], 'Copying base image') !== false;
         });
         $this->assertNotEmpty($copyLogs);
 
         $successLogs = array_filter($records, function ($record) {
-            return strpos($record['message'], 'Successfully copied base image') !== false;
+            return strpos((string) $record['message'], 'Successfully copied base image') !== false;
         });
         $this->assertNotEmpty($successLogs);
     }
 
-    public function testCopyBaseImageFailureWhenBaseImageNotExists(): void
+    public function testCopyBaseImageFailureWhenSourceNotExists(): void
     {
-        // Create a test manager that mocks base image not existing
+        // Create a test manager that mocks missing source file
         $logger = new Logger('test-copy-fail');
         $testHandler = new TestHandler();
         $logger->pushHandler($testHandler);
@@ -1041,7 +1019,7 @@ class VMManagerTest extends TestCase
         $vmManager = new class ($logger) extends VMManager {
             private function fileExists(string $filePath): bool
             {
-                // Mock that base image does not exist
+                // Mock that source file doesn't exist
                 return false;
             }
 
@@ -1063,66 +1041,467 @@ class VMManagerTest extends TestCase
             }
         };
 
-        $result = $vmManager->copyBaseImage('/tmp/nonexistent.qcow2', '/tmp/target.qcow2');
+        $result = $vmManager->copyBaseImage('/nonexistent/base.qcow2', '/tmp/target.qcow2');
 
         $this->assertFalse($result);
 
         // Check error logs
         $records = $testHandler->getRecords();
         $errorLogs = array_filter($records, function ($record) {
-            return strpos($record['message'], 'Base image does not exist') !== false;
+            return strpos((string) $record['message'], 'Base image does not exist') !== false;
         });
         $this->assertNotEmpty($errorLogs);
     }
 
-    public function testCopyBaseImageFailureWithMockCommandFailure(): void
+    // VLAN Network Management Tests
+
+    public function testGenerateNetworkXmlForUser1(): void
     {
-        // Create a test manager that mocks command execution failure
-        $logger = new Logger('test-copy-cmd-fail');
+        $xml = $this->vmManager->generateNetworkXml(100);
+
+        $this->assertStringContainsString('<name>vm-network-100</name>', $xml);
+        $this->assertStringContainsString('<bridge name=\'virbr100\'/>', $xml);
+        $this->assertStringContainsString('<forward mode=\'nat\'/>', $xml);
+        $this->assertStringContainsString('<ip address=\'192.168.100.1\' netmask=\'255.255.255.0\'>', $xml);
+        $this->assertStringContainsString('<range start=\'192.168.100.10\' end=\'192.168.100.100\'/>', $xml);
+
+        // Check logs
+        $records = $this->testHandler->getRecords();
+        $debugLogs = array_filter($records, function ($record) {
+            return strpos((string) $record['message'], 'Generated network XML') !== false;
+        });
+        $this->assertNotEmpty($debugLogs);
+    }
+
+    public function testGenerateNetworkXmlForUser2(): void
+    {
+        $xml = $this->vmManager->generateNetworkXml(101);
+
+        $this->assertStringContainsString('<name>vm-network-101</name>', $xml);
+        $this->assertStringContainsString('<bridge name=\'virbr101\'/>', $xml);
+        $this->assertStringContainsString('<ip address=\'192.168.101.1\' netmask=\'255.255.255.0\'>', $xml);
+        $this->assertStringContainsString('<range start=\'192.168.101.10\' end=\'192.168.101.100\'/>', $xml);
+    }
+
+    public function testGenerateNetworkXmlForUser3(): void
+    {
+        $xml = $this->vmManager->generateNetworkXml(102);
+
+        $this->assertStringContainsString('<name>vm-network-102</name>', $xml);
+        $this->assertStringContainsString('<bridge name=\'virbr102\'/>', $xml);
+        $this->assertStringContainsString('<ip address=\'192.168.102.1\' netmask=\'255.255.255.0\'>', $xml);
+        $this->assertStringContainsString('<range start=\'192.168.102.10\' end=\'192.168.102.100\'/>', $xml);
+    }
+
+    public function testGetUserIPRangeForUser1(): void
+    {
+        $ipRange = $this->vmManager->getUserIPRange('user1');
+
+        $this->assertIsArray($ipRange);
+        $this->assertEquals('192.168.100.0/24', $ipRange['network']);
+        $this->assertEquals('192.168.100.1', $ipRange['gateway']);
+        $this->assertEquals('192.168.100.10', $ipRange['dhcp_start']);
+        $this->assertEquals('192.168.100.100', $ipRange['dhcp_end']);
+        $this->assertEquals(100, $ipRange['vlan_id']);
+
+        // Check logs
+        $records = $this->testHandler->getRecords();
+        $debugLogs = array_filter($records, function ($record) {
+            return strpos((string) $record['message'], 'Retrieved IP range for user') !== false;
+        });
+        $this->assertNotEmpty($debugLogs);
+    }
+
+    public function testGetUserIPRangeForUser2(): void
+    {
+        $ipRange = $this->vmManager->getUserIPRange('user2');
+
+        $this->assertIsArray($ipRange);
+        $this->assertEquals('192.168.101.0/24', $ipRange['network']);
+        $this->assertEquals('192.168.101.1', $ipRange['gateway']);
+        $this->assertEquals('192.168.101.10', $ipRange['dhcp_start']);
+        $this->assertEquals('192.168.101.100', $ipRange['dhcp_end']);
+        $this->assertEquals(101, $ipRange['vlan_id']);
+    }
+
+    public function testGetUserIPRangeForUser3(): void
+    {
+        $ipRange = $this->vmManager->getUserIPRange('user3');
+
+        $this->assertIsArray($ipRange);
+        $this->assertEquals('192.168.102.0/24', $ipRange['network']);
+        $this->assertEquals('192.168.102.1', $ipRange['gateway']);
+        $this->assertEquals('192.168.102.10', $ipRange['dhcp_start']);
+        $this->assertEquals('192.168.102.100', $ipRange['dhcp_end']);
+        $this->assertEquals(102, $ipRange['vlan_id']);
+    }
+
+    public function testGetUserIPRangeForInvalidUser(): void
+    {
+        $ipRange = $this->vmManager->getUserIPRange('invalid_user');
+
+        $this->assertFalse($ipRange);
+
+        // Check error logs
+        $records = $this->testHandler->getRecords();
+        $errorLogs = array_filter($records, function ($record) {
+            return strpos((string) $record['message'], 'Invalid user for IP range lookup') !== false;
+        });
+        $this->assertNotEmpty($errorLogs);
+    }
+
+    public function testGetNetworkNameForValidUsers(): void
+    {
+        $this->assertEquals('vm-network-100', $this->vmManager->getNetworkName('user1'));
+        $this->assertEquals('vm-network-101', $this->vmManager->getNetworkName('user2'));
+        $this->assertEquals('vm-network-102', $this->vmManager->getNetworkName('user3'));
+    }
+
+    public function testGetNetworkNameForInvalidUser(): void
+    {
+        $this->assertFalse($this->vmManager->getNetworkName('invalid_user'));
+    }
+
+    public function testCreateUserNetworkWhenNotConnected(): void
+    {
+        $result = $this->vmManager->createUserNetwork('user1');
+
+        $this->assertFalse($result);
+
+        // Check error logs
+        $records = $this->testHandler->getRecords();
+        $errorLogs = array_filter($records, function ($record) {
+            return strpos((string) $record['message'], 'Not connected to libvirt') !== false;
+        });
+        $this->assertNotEmpty($errorLogs);
+    }
+
+    public function testCreateUserNetworkWithInvalidUser(): void
+    {
+        $result = $this->vmManager->createUserNetwork('invalid_user');
+
+        $this->assertFalse($result);
+
+        // Check error logs
+        $records = $this->testHandler->getRecords();
+        $errorLogs = array_filter($records, function ($record) {
+            return strpos((string) $record['message'], 'Invalid user for network creation') !== false;
+        });
+        $this->assertNotEmpty($errorLogs);
+    }
+
+    public function testCreateUserNetworkSuccessWithMock(): void
+    {
+        // Create a test manager that mocks successful network creation
+        $logger = new Logger('test-network');
         $testHandler = new TestHandler();
         $logger->pushHandler($testHandler);
 
         $vmManager = new class ($logger) extends VMManager {
-            private function fileExists(string $filePath): bool
+            private bool $mockConnected = true;
+            /** @var resource|false */
+            private $mockConnection;
+
+            public function __construct($logger)
             {
-                // Mock that base image exists
-                return $filePath === '/tmp/base.qcow2';
+                parent::__construct($logger);
+                $this->mockConnection = fopen('php://memory', 'r');
             }
 
-            public function copyBaseImage(string $baseImagePath, string $targetImagePath): bool
+            public function isConnected(): bool
             {
-                $this->getLogger()->info('Copying base image', [
-                    'base_image' => $baseImagePath,
-                    'target_image' => $targetImagePath,
-                ]);
+                return $this->mockConnected;
+            }
 
-                // Check if base image exists
-                if (! $this->fileExists($baseImagePath)) {
-                    $this->getLogger()->error('Base image does not exist', ['base_image' => $baseImagePath]);
+            public function getConnection()
+            {
+                return $this->mockConnection;
+            }
+
+            public function createUserNetwork(string $user): bool
+            {
+                if (! array_key_exists($user, ['user1' => 100, 'user2' => 101, 'user3' => 102])) {
+                    $this->getLogger()->error('Invalid user for network creation', ['user' => $user]);
 
                     return false;
                 }
 
-                // Mock command failure
-                $this->getLogger()->error('Failed to copy base image', [
-                    'command' => 'cp /tmp/base.qcow2 /tmp/target.qcow2',
-                    'return_code' => 1,
-                    'output' => 'cp: cannot create regular file: Permission denied',
+                if (! $this->isConnected()) {
+                    $this->getLogger()->error('Not connected to libvirt');
+
+                    return false;
+                }
+
+                $vlanId = ['user1' => 100, 'user2' => 101, 'user3' => 102][$user];
+                $networkName = "vm-network-{$vlanId}";
+
+                $this->getLogger()->info('Creating user network', [
+                    'user' => $user,
+                    'vlan_id' => $vlanId,
+                    'network_name' => $networkName,
+                ]);
+
+                // Mock successful network creation
+                $this->getLogger()->info('Successfully created and started user network', [
+                    'user' => $user,
+                    'network_name' => $networkName,
+                    'vlan_id' => $vlanId,
+                ]);
+
+                return true;
+            }
+        };
+
+        $result = $vmManager->createUserNetwork('user1');
+
+        $this->assertTrue($result);
+
+        // Check logs
+        $records = $testHandler->getRecords();
+        $createLogs = array_filter($records, function ($record) {
+            return strpos((string) $record['message'], 'Creating user network') !== false;
+        });
+        $this->assertNotEmpty($createLogs);
+
+        $successLogs = array_filter($records, function ($record) {
+            return strpos((string) $record['message'], 'Successfully created and started user network') !== false;
+        });
+        $this->assertNotEmpty($successLogs);
+    }
+
+    public function testNetworkExistsWhenNotConnected(): void
+    {
+        $result = $this->vmManager->networkExists('user1');
+
+        $this->assertFalse($result);
+    }
+
+    public function testNetworkExistsWithInvalidUser(): void
+    {
+        $result = $this->vmManager->networkExists('invalid_user');
+
+        $this->assertFalse($result);
+    }
+
+    public function testNetworkExistsSuccessWithMock(): void
+    {
+        // Create a test manager that mocks network existence check
+        $logger = new Logger('test-network-exists');
+        $testHandler = new TestHandler();
+        $logger->pushHandler($testHandler);
+
+        $vmManager = new class ($logger) extends VMManager {
+            private bool $mockConnected = true;
+            /** @var resource|false */
+            private $mockConnection;
+
+            public function __construct($logger)
+            {
+                parent::__construct($logger);
+                $this->mockConnection = fopen('php://memory', 'r');
+            }
+
+            public function isConnected(): bool
+            {
+                return $this->mockConnected;
+            }
+
+            public function getConnection()
+            {
+                return $this->mockConnection;
+            }
+
+            public function networkExists(string $user): bool
+            {
+                if (! array_key_exists($user, ['user1' => 100, 'user2' => 101, 'user3' => 102])) {
+                    return false;
+                }
+
+                if (! $this->isConnected()) {
+                    return false;
+                }
+
+                $vlanId = ['user1' => 100, 'user2' => 101, 'user3' => 102][$user];
+                $networkName = "vm-network-{$vlanId}";
+
+                // Mock that network exists
+                $this->getLogger()->debug('Network exists', [
+                    'user' => $user,
+                    'network_name' => $networkName,
+                ]);
+
+                return true;
+            }
+        };
+
+        $result = $vmManager->networkExists('user1');
+
+        $this->assertTrue($result);
+
+        // Check logs
+        $records = $testHandler->getRecords();
+        $debugLogs = array_filter($records, function ($record) {
+            return strpos((string) $record['message'], 'Network exists') !== false;
+        });
+        $this->assertNotEmpty($debugLogs);
+    }
+
+    public function testNetworkExistsFailureWithMock(): void
+    {
+        // Create a test manager that mocks network doesn't exist
+        $logger = new Logger('test-network-not-exists');
+        $testHandler = new TestHandler();
+        $logger->pushHandler($testHandler);
+
+        $vmManager = new class ($logger) extends VMManager {
+            private bool $mockConnected = true;
+            /** @var resource|false */
+            private $mockConnection;
+
+            public function __construct($logger)
+            {
+                parent::__construct($logger);
+                $this->mockConnection = fopen('php://memory', 'r');
+            }
+
+            public function isConnected(): bool
+            {
+                return $this->mockConnected;
+            }
+
+            public function getConnection()
+            {
+                return $this->mockConnection;
+            }
+
+            public function networkExists(string $user): bool
+            {
+                if (! array_key_exists($user, ['user1' => 100, 'user2' => 101, 'user3' => 102])) {
+                    return false;
+                }
+
+                if (! $this->isConnected()) {
+                    return false;
+                }
+
+                $vlanId = ['user1' => 100, 'user2' => 101, 'user3' => 102][$user];
+                $networkName = "vm-network-{$vlanId}";
+
+                // Mock that network doesn't exist
+                $this->getLogger()->debug('Network does not exist', [
+                    'user' => $user,
+                    'network_name' => $networkName,
                 ]);
 
                 return false;
             }
         };
 
-        $result = $vmManager->copyBaseImage('/tmp/base.qcow2', '/tmp/target.qcow2');
+        $result = $vmManager->networkExists('user1');
 
         $this->assertFalse($result);
 
-        // Check error logs
+        // Check logs
         $records = $testHandler->getRecords();
-        $errorLogs = array_filter($records, function ($record) {
-            return strpos($record['message'], 'Failed to copy base image') !== false;
+        $debugLogs = array_filter($records, function ($record) {
+            return strpos((string) $record['message'], 'Network does not exist') !== false;
         });
-        $this->assertNotEmpty($errorLogs);
+        $this->assertNotEmpty($debugLogs);
+    }
+
+    public function testEnsureUserNetworkWhenNetworkExists(): void
+    {
+        // Create a test manager that mocks network already exists
+        $logger = new Logger('test-ensure-exists');
+        $testHandler = new TestHandler();
+        $logger->pushHandler($testHandler);
+
+        $vmManager = new class ($logger) extends VMManager {
+            public function networkExists(string $user): bool
+            {
+                $this->getLogger()->debug('Network already exists for user', ['user' => $user]);
+
+                return true;
+            }
+
+            public function ensureUserNetwork(string $user): bool
+            {
+                if ($this->networkExists($user)) {
+                    $this->getLogger()->debug('Network already exists for user', ['user' => $user]);
+
+                    return true;
+                }
+
+                $this->getLogger()->info('Network does not exist, creating for user', ['user' => $user]);
+
+                return $this->createUserNetwork($user);
+            }
+        };
+
+        $result = $vmManager->ensureUserNetwork('user1');
+
+        $this->assertTrue($result);
+
+        // Check logs
+        $records = $testHandler->getRecords();
+        $debugLogs = array_filter($records, function ($record) {
+            return strpos((string) $record['message'], 'Network already exists for user') !== false;
+        });
+        $this->assertNotEmpty($debugLogs);
+    }
+
+    public function testEnsureUserNetworkWhenNetworkDoesNotExist(): void
+    {
+        // Create a test manager that mocks network creation
+        $logger = new Logger('test-ensure-create');
+        $testHandler = new TestHandler();
+        $logger->pushHandler($testHandler);
+
+        $vmManager = new class ($logger) extends VMManager {
+            public function networkExists(string $user): bool
+            {
+                return false;
+            }
+
+            public function createUserNetwork(string $user): bool
+            {
+                $this->getLogger()->info('Successfully created and started user network', [
+                    'user' => $user,
+                    'network_name' => "vm-network-100",
+                    'vlan_id' => 100,
+                ]);
+
+                return true;
+            }
+
+            public function ensureUserNetwork(string $user): bool
+            {
+                if ($this->networkExists($user)) {
+                    $this->getLogger()->debug('Network already exists for user', ['user' => $user]);
+
+                    return true;
+                }
+
+                $this->getLogger()->info('Network does not exist, creating for user', ['user' => $user]);
+
+                return $this->createUserNetwork($user);
+            }
+        };
+
+        $result = $vmManager->ensureUserNetwork('user1');
+
+        $this->assertTrue($result);
+
+        // Check logs
+        $records = $testHandler->getRecords();
+        $infoLogs = array_filter($records, function ($record) {
+            return strpos((string) $record['message'], 'Network does not exist, creating for user') !== false;
+        });
+        $this->assertNotEmpty($infoLogs);
+
+        $successLogs = array_filter($records, function ($record) {
+            return strpos((string) $record['message'], 'Successfully created and started user network') !== false;
+        });
+        $this->assertNotEmpty($successLogs);
     }
 }

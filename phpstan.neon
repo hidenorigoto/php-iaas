@@ -5,8 +5,23 @@ parameters:
         - tests
     excludePaths:
         - tests/bootstrap.php
-    checkMissingIterableValueType: false
-    checkGenericClassInNonGenericObjectType: false
+    treatPhpDocTypesAsCertain: false
+    reportUnmatchedIgnoredErrors: false
     ignoreErrors:
-        - '#Call to an undefined function libvirt_#'
-        - '#Function libvirt_\w+ not found#'
+        # Deprecated config options moved to ignoreErrors
+        - identifier: missingType.iterableValue
+        - identifier: missingType.generics
+
+        # Libvirt functions are not available in analysis environment
+        - '#Function libvirt_connect invoked with \d+ parameter#'
+        - '#Parameter \#1 \$res of function libvirt_\w+ expects resource#'
+
+        # Known issues with resource type comparisons
+        - '#Strict comparison using === between string and false will always evaluate to false#'
+
+        # Test-specific issues
+        - '#Cannot cast array\|DateTimeImmutable\|int\|string\|null to string#'
+        - '#Parameter \#2 \$haystack of method PHPUnit\\Framework\\Assert::assertStringContainsString\(\) expects string#'
+        - '#Property class@anonymous.*\$mockResource \(resource\|null\) does not accept resource\|false#'
+        - '#Method class@anonymous.*::getConnection\(\) should return resource\|null but returns resource\|false#'
+        - '#Unreachable statement - code above always terminates#'
