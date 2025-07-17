@@ -2202,6 +2202,9 @@ class VMManagerTest extends TestCase
             /**
              * @return mixed
              */
+            /**
+             * @return mixed
+             */
             public function getDomainByName(string $vmName)
             {
                 return new \stdClass();
@@ -2400,5 +2403,319 @@ class VMManagerTest extends TestCase
         $this->assertEquals(4, $result->cpu);
         $this->assertEquals(4096, $result->memory);
         $this->assertEquals(40, $result->disk);
+    }
+
+    public function testGetSSHInfoSuccess(): void
+    {
+        $vm = new SimpleVM('test-vm', 'user1', 2, 2048, 20);
+        $vm->status = 'running';
+
+        // Create mock manager with SSH functionality
+        $vmManager = new class ($this->vmManager->getLogger()) extends VMManager {
+            /** @var object */
+            private object $mockDomain;
+
+            public function __construct(Logger $logger)
+            {
+                parent::__construct($logger);
+                $this->mockDomain = (object) ['resource' => 'mock_domain'];
+            }
+
+            public function isConnected(): bool
+            {
+                return true;
+            }
+
+            /**
+             * @return mixed
+             */
+            public function getDomainByName(string $vmName)
+            {
+                if ($vmName === 'test-vm') {
+                    return $this->mockDomain;
+                }
+
+                return false;
+            }
+
+            public function isVMRunning(string $vmName): bool
+            {
+                return $vmName === 'test-vm';
+            }
+
+            /**
+             * @return string|false
+             */
+            public function getVMIPAddress(string $vmName, string $user)
+            {
+                if ($vmName === 'test-vm') {
+                    return '192.168.100.10';
+                }
+
+                return false;
+            }
+
+            public function generatePassword(int $length = 16): string
+            {
+                return 'test-password-123';
+            }
+
+            public function waitForSSHReady(string $ipAddress, string $username, int $timeout = 60): bool
+            {
+                return true;
+            }
+        };
+
+        $sshInfo = $vmManager->getSSHInfo($vm);
+
+        $this->assertIsArray($sshInfo);
+        $this->assertEquals('192.168.100.10', $sshInfo['ip']);
+        $this->assertEquals('ubuntu', $sshInfo['username']);
+        $this->assertEquals('test-password-123', $sshInfo['password']);
+        $this->assertTrue($sshInfo['ready']);
+
+        // Check that VM was updated with SSH info
+        $this->assertEquals('192.168.100.10', $vm->ipAddress);
+        $this->assertEquals('test-password-123', $vm->password);
+    }
+
+    public function testGetSSHInfoFailsWhenVMNotRunning(): void
+    {
+        $vm = new SimpleVM('test-vm', 'user1', 2, 2048, 20);
+        $vm->status = 'shutoff';
+
+        $sshInfo = $this->vmManager->getSSHInfo($vm);
+
+        $this->assertFalse($sshInfo);
+        $this->assertTrue($this->testHandler->hasErrorThatContains('Failed to get domain for SSH info'));
+    }
+
+    public function testGetSSHInfoFailsWhenNoIPAddress(): void
+    {
+        $vm = new SimpleVM('test-vm', 'user1', 2, 2048, 20);
+        $vm->status = 'running';
+
+        // Create mock manager that returns no IP
+        $vmManager = new class ($this->vmManager->getLogger()) extends VMManager {
+            /**
+             * @return mixed
+             */
+            public function getDomainByName(string $vmName)
+            {
+                return new \stdClass();
+            }
+
+            public function isVMRunning(string $vmName): bool
+            {
+                return true;
+            }
+
+            /**
+             * @return string|false
+             */
+            public function getVMIPAddress(string $vmName, string $user)
+            {
+                return false;
+            }
+        };
+
+        $sshInfo = $vmManager->getSSHInfo($vm);
+
+        $this->assertFalse($sshInfo);
+        $this->assertTrue($this->testHandler->hasErrorThatContains('Failed to get IP address'));
+    }
+
+    public function testGetSSHInfoWithExistingPassword(): void
+    {
+        $vm = new SimpleVM('test-vm', 'user1', 2, 2048, 20);
+        $vm->status = 'running';
+        $vm->password = 'existing-password';
+
+        // Create mock manager
+        $vmManager = new class ($this->vmManager->getLogger()) extends VMManager {
+            /**
+             * @return mixed
+             */
+            public function getDomainByName(string $vmName)
+            {
+                return new \stdClass();
+            }
+
+            public function isVMRunning(string $vmName): bool
+            {
+                return true;
+            }
+
+            /**
+             * @return string|false
+             */
+            public function getVMIPAddress(string $vmName, string $user)
+            {
+                return '192.168.100.10';
+            }
+
+            public function waitForSSHReady(string $ipAddress, string $username, int $timeout = 60): bool
+            {
+                return true;
+            }
+        };
+
+        $sshInfo = $vmManager->getSSHInfo($vm);
+
+        $this->assertIsArray($sshInfo);
+        $this->assertEquals('existing-password', $sshInfo['password']);
+    }
+
+    public function testGetSSHInfoWhenSSHNotReady(): void
+    {
+        $vm = new SimpleVM('test-vm', 'user1', 2, 2048, 20);
+        $vm->status = 'running';
+
+        // Create mock manager where SSH is not ready
+        $vmManager = new class ($this->vmManager->getLogger()) extends VMManager {
+            /**
+             * @return mixed
+             */
+            public function getDomainByName(string $vmName)
+            {
+                return new \stdClass();
+            }
+
+            public function isVMRunning(string $vmName): bool
+            {
+                return true;
+            }
+
+            /**
+             * @return string|false
+             */
+            public function getVMIPAddress(string $vmName, string $user)
+            {
+                return '192.168.100.10';
+            }
+
+            public function generatePassword(int $length = 16): string
+            {
+                return 'test-password';
+            }
+
+            public function waitForSSHReady(string $ipAddress, string $username, int $timeout = 60): bool
+            {
+                return false;
+            }
+        };
+
+        $sshInfo = $vmManager->getSSHInfo($vm);
+
+        $this->assertIsArray($sshInfo);
+        $this->assertFalse($sshInfo['ready']);
+        $this->assertTrue($this->testHandler->hasWarningThatContains('SSH not ready yet'));
+    }
+
+    public function testGetVMIPAddressFromDHCPLease(): void
+    {
+        // Create mock manager with DHCP lease
+        $vmManager = new class ($this->vmManager->getLogger()) extends VMManager {
+            public function getDHCPLeases(string $networkName): array
+            {
+                return [
+                    [
+                        'hostname' => 'test-vm',
+                        'ip' => '192.168.100.20',
+                        'mac' => '52:54:00:12:34:56',
+                    ],
+                    [
+                        'hostname' => 'other-vm',
+                        'ip' => '192.168.100.21',
+                        'mac' => '52:54:00:12:34:57',
+                    ],
+                ];
+            }
+        };
+
+        $ipAddress = $vmManager->getVMIPAddress('test-vm', 'user1');
+
+        $this->assertEquals('192.168.100.20', $ipAddress);
+        $this->assertTrue($this->testHandler->hasInfoThatContains('Found IP from DHCP lease'));
+    }
+
+    public function testGetVMIPAddressFromDomainInterface(): void
+    {
+        // Create mock manager without DHCP lease but with domain interface
+        $vmManager = new class ($this->vmManager->getLogger()) extends VMManager {
+            public function getDHCPLeases(string $networkName): array
+            {
+                return [];
+            }
+
+            /**
+             * @return mixed
+             */
+            public function getDomainByName(string $vmName)
+            {
+                return new \stdClass();
+            }
+        };
+
+        // Since we can't mock libvirt_domain_interface_addresses,
+        // we expect this to fail and return false
+        $ipAddress = $vmManager->getVMIPAddress('test-vm', 'user1');
+
+        $this->assertFalse($ipAddress);
+    }
+
+    public function testGeneratePassword(): void
+    {
+        $password1 = $this->vmManager->generatePassword();
+        $password2 = $this->vmManager->generatePassword();
+
+        $this->assertEquals(16, strlen($password1));
+        $this->assertEquals(16, strlen($password2));
+        $this->assertNotEquals($password1, $password2); // Should be random
+
+        // Test custom length
+        $password3 = $this->vmManager->generatePassword(20);
+        $this->assertEquals(20, strlen($password3));
+
+        // Test password contains expected characters
+        $this->assertMatchesRegularExpression('/[a-z]/', $password1);
+        $this->assertMatchesRegularExpression('/[A-Z]/', $password1);
+        $this->assertMatchesRegularExpression('/[0-9]/', $password1);
+        $this->assertMatchesRegularExpression('/[!@#$%^&*()]/', $password1);
+    }
+
+    public function testWaitForSSHReady(): void
+    {
+        // Since we can't easily mock fsockopen and exec,
+        // we'll test the method exists and has correct signature
+        $this->assertTrue(method_exists($this->vmManager, 'waitForSSHReady'));
+
+        $reflection = new \ReflectionMethod($this->vmManager, 'waitForSSHReady');
+        $params = $reflection->getParameters();
+
+        $this->assertCount(3, $params);
+        $this->assertEquals('ipAddress', $params[0]->getName());
+        $this->assertEquals('username', $params[1]->getName());
+        $this->assertEquals('timeout', $params[2]->getName());
+        $this->assertTrue($params[2]->isOptional());
+        $this->assertEquals(60, $params[2]->getDefaultValue());
+    }
+
+    public function testGetDHCPLeases(): void
+    {
+        // Create mock manager to test protected method
+        $vmManager = new class ($this->vmManager->getLogger()) extends VMManager {
+            public function testGetDHCPLeases(string $networkName): array
+            {
+                return $this->getDHCPLeases($networkName);
+            }
+        };
+
+        // Test when functions not available
+        $leases = $vmManager->testGetDHCPLeases('vm-network-100');
+
+        $this->assertIsArray($leases);
+        $this->assertEmpty($leases);
+        $this->assertTrue($this->testHandler->hasWarningThatContains('libvirt_network_get_dhcp_leases not available'));
     }
 }

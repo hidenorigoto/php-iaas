@@ -9,6 +9,11 @@ use Monolog\Handler\RotatingFileHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Logger;
 
+// Define libvirt constants if not already defined
+if (! defined('VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE')) {
+    define('VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE', 1);
+}
+
 /**
  * VMManager class for managing virtual machines using libvirt-php
  */
@@ -1300,6 +1305,295 @@ class VMManager
         $this->logger->debug('Listed all VMs', ['count' => count($vms), 'vms' => array_keys($vms)]);
 
         return $vms;
+    }
+
+    /**
+     * Get SSH connection information for a VM
+     *
+     * @param SimpleVM $vm VM instance
+     * @return array|false SSH info array or false on failure
+     */
+    public function getSSHInfo(SimpleVM $vm)
+    {
+        $this->logger->info('Getting SSH info for VM', ['vm_name' => $vm->name]);
+
+        // Get domain
+        $domain = $this->getDomainByName($vm->name);
+        if ($domain === false) {
+            $this->logger->error('Failed to get domain for SSH info', ['vm_name' => $vm->name]);
+
+            return false;
+        }
+
+        // Check if VM is running
+        if (! $this->isVMRunning($vm->name)) {
+            $this->logger->error('VM is not running', ['vm_name' => $vm->name]);
+
+            return false;
+        }
+
+        // Get IP address
+        $ipAddress = $this->getVMIPAddress($vm->name, $vm->user);
+        if ($ipAddress === false) {
+            $this->logger->error('Failed to get IP address', ['vm_name' => $vm->name]);
+
+            return false;
+        }
+
+        // Generate password if not set
+        if (empty($vm->password)) {
+            $password = $this->generatePassword();
+            $vm->setSSHInfo($ipAddress, $password);
+        } else {
+            $password = $vm->password;
+        }
+
+        // Wait for SSH to be ready
+        $sshReady = $this->waitForSSHReady($ipAddress, $vm->username);
+        if (! $sshReady) {
+            $this->logger->warning('SSH not ready yet', [
+                'vm_name' => $vm->name,
+                'ip' => $ipAddress,
+            ]);
+        }
+
+        $sshInfo = [
+            'ip' => $ipAddress,
+            'username' => $vm->username,
+            'password' => $password,
+            'ready' => $sshReady,
+        ];
+
+        $this->logger->info('SSH info retrieved', [
+            'vm_name' => $vm->name,
+            'ip' => $ipAddress,
+            'ready' => $sshReady,
+        ]);
+
+        return $sshInfo;
+    }
+
+    /**
+     * Get VM IP address from DHCP leases or domain info
+     *
+     * @param string $vmName VM name
+     * @param string $user User name (for network identification)
+     * @return string|false IP address or false on failure
+     */
+    public function getVMIPAddress(string $vmName, string $user)
+    {
+        $this->logger->debug('Getting IP address for VM', [
+            'vm_name' => $vmName,
+            'user' => $user,
+        ]);
+
+        // First try to get from DHCP leases
+        $networkName = $this->getNetworkName($user);
+        if ($networkName === false) {
+            $this->logger->error('Invalid user for network lookup', ['user' => $user]);
+
+            return false;
+        }
+        $leases = $this->getDHCPLeases($networkName);
+
+        foreach ($leases as $lease) {
+            if (isset($lease['hostname']) && $lease['hostname'] === $vmName) {
+                $this->logger->info('Found IP from DHCP lease', [
+                    'vm_name' => $vmName,
+                    'ip' => $lease['ip'],
+                ]);
+
+                return $lease['ip'];
+            }
+        }
+
+        // If not found in leases, try domain network info
+        if (! function_exists('libvirt_domain_interface_addresses')) {
+            $this->logger->warning('libvirt_domain_interface_addresses not available');
+
+            return false;
+        }
+
+        $domain = $this->getDomainByName($vmName);
+        if ($domain === false) {
+            return false;
+        }
+
+        $interfaces = @libvirt_domain_interface_addresses($domain, VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE);
+        if ($interfaces === false) {
+            $error = $this->getLastLibvirtError();
+            $this->logger->error('Failed to get domain interfaces', [
+                'vm_name' => $vmName,
+                'error' => $error,
+            ]);
+
+            return false;
+        }
+
+        // Look for the first valid IPv4 address
+        foreach ($interfaces as $interface) {
+            if (isset($interface['addrs'])) {
+                foreach ($interface['addrs'] as $addr) {
+                    if ($addr['type'] === 0) { // IPv4
+                        $this->logger->info('Found IP from domain interface', [
+                            'vm_name' => $vmName,
+                            'ip' => $addr['addr'],
+                        ]);
+
+                        return $addr['addr'];
+                    }
+                }
+            }
+        }
+
+        $this->logger->error('No IP address found for VM', ['vm_name' => $vmName]);
+
+        return false;
+    }
+
+    /**
+     * Get DHCP leases for a network
+     *
+     * @param string $networkName Network name
+     * @return array Array of lease information
+     */
+    protected function getDHCPLeases(string $networkName): array
+    {
+        if (! function_exists('libvirt_network_get_dhcp_leases')) {
+            $this->logger->warning('libvirt_network_get_dhcp_leases not available');
+
+            return [];
+        }
+
+        if (! function_exists('libvirt_network_get')) {
+            $this->logger->warning('libvirt_network_get not available');
+
+            return [];
+        }
+
+        $network = @libvirt_network_get($this->libvirtConnection, $networkName);
+        if ($network === false) {
+            $error = $this->getLastLibvirtError();
+            $this->logger->error('Failed to get network', [
+                'network_name' => $networkName,
+                'error' => $error,
+            ]);
+
+            return [];
+        }
+
+        $leases = @libvirt_network_get_dhcp_leases($network);
+        if ($leases === false) {
+            $error = $this->getLastLibvirtError();
+            $this->logger->error('Failed to get DHCP leases', [
+                'network_name' => $networkName,
+                'error' => $error,
+            ]);
+
+            return [];
+        }
+
+        $this->logger->debug('Retrieved DHCP leases', [
+            'network_name' => $networkName,
+            'lease_count' => count($leases),
+        ]);
+
+        return $leases;
+    }
+
+    /**
+     * Generate a secure random password
+     *
+     * @param int $length Password length
+     * @return string Generated password
+     */
+    public function generatePassword(int $length = 16): string
+    {
+        $lowercase = 'abcdefghijklmnopqrstuvwxyz';
+        $uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        $numbers = '0123456789';
+        $symbols = '!@#$%^&*()';
+        $allChars = $lowercase . $uppercase . $numbers . $symbols;
+
+        // Ensure password contains at least one character from each category
+        $password = '';
+        $password .= $lowercase[random_int(0, strlen($lowercase) - 1)];
+        $password .= $uppercase[random_int(0, strlen($uppercase) - 1)];
+        $password .= $numbers[random_int(0, strlen($numbers) - 1)];
+        $password .= $symbols[random_int(0, strlen($symbols) - 1)];
+
+        // Fill the rest with random characters
+        for ($i = 4; $i < $length; $i++) {
+            $password .= $allChars[random_int(0, strlen($allChars) - 1)];
+        }
+
+        // Shuffle the password to avoid predictable patterns
+        $password = str_shuffle($password);
+
+        $this->logger->debug('Generated password', ['length' => $length]);
+
+        return $password;
+    }
+
+    /**
+     * Wait for SSH service to be ready
+     *
+     * @param string $ipAddress IP address
+     * @param string $username SSH username
+     * @param int $timeout Timeout in seconds
+     * @return bool True if SSH is ready, false otherwise
+     */
+    public function waitForSSHReady(string $ipAddress, string $username, int $timeout = 60): bool
+    {
+        $this->logger->info('Waiting for SSH to be ready', [
+            'ip' => $ipAddress,
+            'username' => $username,
+            'timeout' => $timeout,
+        ]);
+
+        $startTime = time();
+        while ((time() - $startTime) < $timeout) {
+            // Try to connect to SSH port
+            $connection = @fsockopen($ipAddress, 22, $errno, $errstr, 5);
+            if ($connection !== false) {
+                fclose($connection);
+                $this->logger->info('SSH port is open', ['ip' => $ipAddress]);
+
+                // Additional check with SSH command
+                $command = sprintf(
+                    'ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o PasswordAuthentication=no %s@%s exit 2>&1',
+                    escapeshellarg($username),
+                    escapeshellarg($ipAddress)
+                );
+
+                exec($command, $output, $returnCode);
+
+                // Return code 255 means connection refused or network error
+                // Other codes mean SSH is responding (even if auth fails)
+                if ($returnCode !== 255) {
+                    $this->logger->info('SSH service is responding', [
+                        'ip' => $ipAddress,
+                        'return_code' => $returnCode,
+                    ]);
+
+                    return true;
+                }
+            }
+
+            $this->logger->debug('SSH not ready yet, retrying...', [
+                'ip' => $ipAddress,
+                'elapsed' => time() - $startTime,
+            ]);
+
+            sleep(2);
+        }
+
+        $this->logger->warning('SSH readiness check timed out', [
+            'ip' => $ipAddress,
+            'timeout' => $timeout,
+        ]);
+
+        return false;
     }
 
     /**
