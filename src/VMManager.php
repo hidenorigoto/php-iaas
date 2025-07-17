@@ -845,6 +845,188 @@ class VMManager
     }
 
     /**
+     * Build VM configuration XML
+     *
+     * @param SimpleVM $vm VM instance with configuration
+     * @param string $diskPath Path to the disk volume
+     * @return string Domain XML configuration
+     */
+    public function buildVMConfig(SimpleVM $vm, string $diskPath): string
+    {
+        $this->logger->info('Building VM configuration XML', [
+            'vm_name' => $vm->name,
+            'user' => $vm->user,
+            'disk_path' => $diskPath,
+        ]);
+
+        // Generate unique UUID for the VM
+        $uuid = $this->generateUUID();
+
+        // Convert memory from MB to KiB
+        $memoryKiB = $vm->memory * 1024;
+
+        // Get network name for the user
+        $networkName = $this->getNetworkName($vm->user);
+        if ($networkName === false) {
+            throw new \RuntimeException("Invalid user for network configuration: {$vm->user}");
+        }
+
+        // Generate MAC address
+        $macAddress = $this->generateMacAddress();
+
+        // Build the domain XML
+        $xml = <<<XML
+            <domain type='qemu'>
+              <name>{$vm->name}</name>
+              <uuid>{$uuid}</uuid>
+              <memory unit='KiB'>{$memoryKiB}</memory>
+              <currentMemory unit='KiB'>{$memoryKiB}</currentMemory>
+              <vcpu placement='static'>{$vm->cpu}</vcpu>
+              <os>
+                <type arch='x86_64' machine='pc-i440fx-2.12'>hvm</type>
+                <boot dev='hd'/>
+              </os>
+              <features>
+                <acpi/>
+                <apic/>
+                <vmport state='off'/>
+              </features>
+              <cpu mode='host-model' check='partial'>
+                <model fallback='allow'/>
+              </cpu>
+              <clock offset='utc'>
+                <timer name='rtc' tickpolicy='catchup'/>
+                <timer name='pit' tickpolicy='delay'/>
+                <timer name='hpet' present='no'/>
+              </clock>
+              <on_poweroff>destroy</on_poweroff>
+              <on_reboot>restart</on_reboot>
+              <on_crash>destroy</on_crash>
+              <pm>
+                <suspend-to-mem enabled='no'/>
+                <suspend-to-disk enabled='no'/>
+              </pm>
+              <devices>
+                <emulator>/usr/bin/qemu-system-x86_64</emulator>
+                <disk type='file' device='disk'>
+                  <driver name='qemu' type='qcow2'/>
+                  <source file='{$diskPath}'/>
+                  <target dev='vda' bus='virtio'/>
+                  <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
+                </disk>
+                <controller type='usb' index='0' model='ich9-ehci1'>
+                  <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x7'/>
+                </controller>
+                <controller type='pci' index='0' model='pci-root'/>
+                <interface type='network'>
+                  <mac address='{$macAddress}'/>
+                  <source network='{$networkName}'/>
+                  <model type='virtio'/>
+                  <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
+                </interface>
+                <serial type='pty'>
+                  <target type='isa-serial' port='0'>
+                    <model name='isa-serial'/>
+                  </target>
+                </serial>
+                <console type='pty'>
+                  <target type='serial' port='0'/>
+                </console>
+                <input type='mouse' bus='ps2'/>
+                <input type='keyboard' bus='ps2'/>
+                <graphics type='vnc' port='-1' autoport='yes' listen='127.0.0.1'>
+                  <listen type='address' address='127.0.0.1'/>
+                </graphics>
+                <video>
+                  <model type='cirrus' vram='16384' heads='1' primary='yes'/>
+                  <address type='pci' domain='0x0000' bus='0x00' slot='0x02' function='0x0'/>
+                </video>
+                <memballoon model='virtio'>
+                  <address type='pci' domain='0x0000' bus='0x00' slot='0x06' function='0x0'/>
+                </memballoon>
+              </devices>
+            </domain>
+            XML;
+
+        $this->logger->debug('Generated VM configuration XML', [
+            'vm_name' => $vm->name,
+            'uuid' => $uuid,
+            'memory_kib' => $memoryKiB,
+            'network' => $networkName,
+            'mac_address' => $macAddress,
+        ]);
+
+        return trim($xml);
+    }
+
+    /**
+     * Generate a unique UUID
+     *
+     * @return string UUID in format xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+     */
+    private function generateUUID(): string
+    {
+        $data = random_bytes(16);
+
+        // Set version (4) and variant bits
+        $data[6] = chr(ord($data[6]) & 0x0f | 0x40); // Version 4
+        $data[8] = chr(ord($data[8]) & 0x3f | 0x80); // Variant 10
+
+        $timeLow = unpack('N', substr($data, 0, 4));
+        $timeMid = unpack('n', substr($data, 4, 2));
+        $timeHiVersion = unpack('n', substr($data, 6, 2));
+        $clockSeq = unpack('n', substr($data, 8, 2));
+        $nodeHigh = unpack('N', substr($data, 10, 4));
+        $nodeLow = unpack('n', substr($data, 14, 2));
+
+        if ($timeLow === false || $timeMid === false || $timeHiVersion === false ||
+            $clockSeq === false || $nodeHigh === false || $nodeLow === false) {
+            // Fallback to a simpler UUID generation if unpack fails
+            return sprintf(
+                '%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
+                mt_rand(0, 0xffff),
+                mt_rand(0, 0xffff),
+                mt_rand(0, 0xffff),
+                mt_rand(0, 0x0fff) | 0x4000,
+                mt_rand(0, 0x3fff) | 0x8000,
+                mt_rand(0, 0xffff),
+                mt_rand(0, 0xffff),
+                mt_rand(0, 0xffff)
+            );
+        }
+
+        return sprintf(
+            '%08x-%04x-%04x-%04x-%012x',
+            $timeLow[1],
+            $timeMid[1],
+            $timeHiVersion[1],
+            $clockSeq[1],
+            $nodeHigh[1] << 16 | $nodeLow[1]
+        );
+    }
+
+    /**
+     * Generate a unique MAC address
+     *
+     * @return string MAC address in format XX:XX:XX:XX:XX:XX
+     */
+    private function generateMacAddress(): string
+    {
+        // Use locally administered MAC address (second least significant bit of first octet set to 1)
+        // First octet: 52 (01010010 in binary) indicates locally administered
+        $mac = [0x52];
+
+        // Generate 5 random octets
+        for ($i = 1; $i < 6; $i++) {
+            $mac[] = random_int(0x00, 0xff);
+        }
+
+        return implode(':', array_map(function ($octet) {
+            return sprintf('%02x', $octet);
+        }, $mac));
+    }
+
+    /**
      * Destructor - ensure libvirt connection is closed
      */
     public function __destruct()
