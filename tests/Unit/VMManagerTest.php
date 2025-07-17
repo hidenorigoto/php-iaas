@@ -1872,7 +1872,20 @@ class VMManagerTest extends TestCase
                 return '/var/lib/libvirt/images/' . $volumeName . '.qcow2';
             }
 
-            public function buildVMConfig(SimpleVM $vm, string $diskPath): string
+            /**
+             * @return string|false
+             * @phpstan-ignore-next-line
+             */
+            private function createCloudInitISO(SimpleVM $vm)
+            {
+                $this->logInfo('Creating cloud-init ISO', [
+                    'vm_name' => $vm->name,
+                ]);
+
+                return '/var/lib/libvirt/images/cloud-init/' . $vm->name . '-cloud-init.iso';
+            }
+
+            public function buildVMConfig(SimpleVM $vm, string $diskPath, string $cloudInitISOPath = ''): string
             {
                 return '<domain type="qemu"><name>' . $vm->name . '</name></domain>';
             }

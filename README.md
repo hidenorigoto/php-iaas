@@ -9,6 +9,8 @@ libvirt-phpモジュールを使用してVMの作成・起動を行うミニマ�
 ## 主な機能
 
 - VM作成・起動の統合機能
+- Ubuntu 22.04 LTSベースイメージの自動展開
+- Cloud-initによる自動設定（ホスト名、SSH認証、ネットワーク）
 - OpenVSwitchを使用したVLANネットワーク管理
 - ユーザー毎のVLAN分離（user1: VLAN 100, user2: VLAN 101, user3: VLAN 102）
 - SSH接続情報の自動取得・提供
@@ -55,6 +57,14 @@ pre-commit install --hook-type commit-msg
 
 ## 使用方法
 
+### Ubuntu ベースイメージの準備
+
+1. Ubuntu 22.04 LTS クラウドイメージをダウンロード：
+```bash
+wget https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
+sudo mv jammy-server-cloudimg-amd64.img /var/lib/libvirt/images/ubuntu-22.04-server-cloudimg-amd64.img
+```
+
 ### VM作成
 
 ```bash
@@ -69,6 +79,13 @@ curl -X POST http://localhost:8080/create-vm \
     "disk": 20
   }'
 ```
+
+作成されたVMの特徴：
+- Ubuntu 22.04 LTSがプリインストール済み
+- Cloud-initによる自動初期設定
+- SSH認証情報が自動生成され、作成時に表示
+- デフォルトユーザー: `ubuntu`
+- qemu-guest-agentがインストール済み
 
 ### レスポンス例
 
