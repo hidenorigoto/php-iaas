@@ -43,10 +43,14 @@ cd vm-management-php
 composer install
 
 # 開発環境の起動
-docker-compose up -d
+docker compose up -d
+
+# pre-commitのインストール（ホストマシン）
+pip install pre-commit
 
 # pre-commitフックのインストール
 pre-commit install
+pre-commit install --hook-type commit-msg
 ```
 
 ## 使用方法

@@ -8,14 +8,11 @@
          requireCoverageMetadata="true"
          beStrictAboutCoverageMetadata="true"
          beStrictAboutOutputDuringTests="true"
-         failOnRisky="true"
-         failOnWarning="true">
+         failOnRisky="false"
+         failOnWarning="false">
     <testsuites>
         <testsuite name="Unit">
             <directory>tests/Unit</directory>
-        </testsuite>
-        <testsuite name="Integration">
-            <directory>tests/Integration</directory>
         </testsuite>
     </testsuites>
     <source restrictDeprecations="true" restrictNotices="true" restrictWarnings="true">

@@ -32,7 +32,6 @@ class VMManager
     private const LIBVIRT_URI = 'qemu:///system';
     private const DEFAULT_STORAGE_POOL = 'default';
     private const DEFAULT_DISK_PATH = '/var/lib/libvirt/images/';
-    private const DEFAULT_BASE_IMAGE = '/var/lib/libvirt/images/ubuntu-20.04-server-amd64.iso';
 
     /**
      * Constructor for VMManager
@@ -291,7 +290,7 @@ class VMManager
         if (function_exists('libvirt_get_last_error')) {
             $error = libvirt_get_last_error();
 
-            return $error !== false ? $error : 'Unknown libvirt error';
+            return is_string($error) ? $error : 'Unknown libvirt error';
         }
 
         return 'libvirt_get_last_error function not available';
@@ -594,6 +593,255 @@ class VMManager
     private function fileExists(string $filePath): bool
     {
         return file_exists($filePath);
+    }
+
+    /**
+     * Create and start network for a specific user
+     *
+     * @param string $user User name (user1, user2, user3)
+     * @return bool True on success, false on failure
+     */
+    public function createUserNetwork(string $user): bool
+    {
+        if (! array_key_exists($user, self::USER_VLAN_MAP)) {
+            $this->logger->error('Invalid user for network creation', ['user' => $user]);
+
+            return false;
+        }
+
+        if (! $this->isConnected()) {
+            $this->logger->error('Not connected to libvirt');
+
+            return false;
+        }
+
+        $vlanId = self::USER_VLAN_MAP[$user];
+        $networkName = "vm-network-{$vlanId}";
+
+        $this->logger->info('Creating user network', [
+            'user' => $user,
+            'vlan_id' => $vlanId,
+            'network_name' => $networkName,
+        ]);
+
+        // Generate network XML
+        $networkXml = $this->generateNetworkXml($vlanId);
+
+        // Check if libvirt_network_define_xml function exists
+        if (! function_exists('libvirt_network_define_xml')) {
+            $this->logger->error('libvirt_network_define_xml function not available');
+
+            return false;
+        }
+
+        // Define the network
+        $network = libvirt_network_define_xml($this->libvirtConnection, $networkXml);
+
+        if ($network === false) {
+            $error = $this->getLastLibvirtError();
+            $this->logger->error('Failed to define network', [
+                'network_name' => $networkName,
+                'error' => $error,
+            ]);
+
+            return false;
+        }
+
+        // Start the network
+        if (! $this->startNetwork($network, $networkName)) {
+            return false;
+        }
+
+        $this->logger->info('Successfully created and started user network', [
+            'user' => $user,
+            'network_name' => $networkName,
+            'vlan_id' => $vlanId,
+        ]);
+
+        return true;
+    }
+
+    /**
+     * Start a libvirt network
+     *
+     * @param resource $network Network resource
+     * @param string $networkName Network name for logging
+     * @return bool True on success, false on failure
+     */
+    private function startNetwork($network, string $networkName): bool
+    {
+        // Check if libvirt_network_create function exists
+        if (! function_exists('libvirt_network_create')) {
+            $this->logger->error('libvirt_network_create function not available');
+
+            return false;
+        }
+
+        $result = libvirt_network_create($network);
+
+        if ($result === false) {
+            $error = $this->getLastLibvirtError();
+            $this->logger->error('Failed to start network', [
+                'network_name' => $networkName,
+                'error' => $error,
+            ]);
+
+            return false;
+        }
+
+        $this->logger->info('Successfully started network', ['network_name' => $networkName]);
+
+        return true;
+    }
+
+    /**
+     * Generate XML configuration for user network
+     *
+     * @param int $vlanId VLAN ID (100, 101, 102)
+     * @return string Network XML configuration
+     */
+    public function generateNetworkXml(int $vlanId): string
+    {
+        $networkName = "vm-network-{$vlanId}";
+        $bridgeName = "virbr{$vlanId}";
+        $ipAddress = "192.168.{$vlanId}.1";
+        $netmask = "255.255.255.0";
+        $dhcpStart = "192.168.{$vlanId}.10";
+        $dhcpEnd = "192.168.{$vlanId}.100";
+
+        $xml = <<<XML
+            <network>
+              <name>{$networkName}</name>
+              <bridge name='{$bridgeName}'/>
+              <forward mode='nat'/>
+              <ip address='{$ipAddress}' netmask='{$netmask}'>
+                <dhcp>
+                  <range start='{$dhcpStart}' end='{$dhcpEnd}'/>
+                </dhcp>
+              </ip>
+            </network>
+            XML;
+
+        $this->logger->debug('Generated network XML', [
+            'vlan_id' => $vlanId,
+            'network_name' => $networkName,
+            'xml' => $xml,
+        ]);
+
+        return $xml;
+    }
+
+    /**
+     * Get IP range for a specific user
+     *
+     * @param string $user User name (user1, user2, user3)
+     * @return array<string, string|int>|false IP range information or false on error
+     */
+    public function getUserIPRange(string $user)
+    {
+        if (! array_key_exists($user, self::USER_VLAN_MAP)) {
+            $this->logger->error('Invalid user for IP range lookup', ['user' => $user]);
+
+            return false;
+        }
+
+        $vlanId = self::USER_VLAN_MAP[$user];
+
+        $ipRange = [
+            'network' => "192.168.{$vlanId}.0/24",
+            'gateway' => "192.168.{$vlanId}.1",
+            'dhcp_start' => "192.168.{$vlanId}.10",
+            'dhcp_end' => "192.168.{$vlanId}.100",
+            'vlan_id' => $vlanId,
+        ];
+
+        $this->logger->debug('Retrieved IP range for user', [
+            'user' => $user,
+            'ip_range' => $ipRange,
+        ]);
+
+        return $ipRange;
+    }
+
+    /**
+     * Check if network exists for a user
+     *
+     * @param string $user User name (user1, user2, user3)
+     * @return bool True if network exists, false otherwise
+     */
+    public function networkExists(string $user): bool
+    {
+        if (! array_key_exists($user, self::USER_VLAN_MAP)) {
+            return false;
+        }
+
+        if (! $this->isConnected()) {
+            return false;
+        }
+
+        $vlanId = self::USER_VLAN_MAP[$user];
+        $networkName = "vm-network-{$vlanId}";
+
+        // Check if libvirt_network_lookup_by_name function exists
+        if (! function_exists('libvirt_network_lookup_by_name')) {
+            $this->logger->error('libvirt_network_lookup_by_name function not available');
+
+            return false;
+        }
+
+        $network = libvirt_network_lookup_by_name($this->libvirtConnection, $networkName);
+
+        if ($network === false) {
+            $this->logger->debug('Network does not exist', [
+                'user' => $user,
+                'network_name' => $networkName,
+            ]);
+
+            return false;
+        }
+
+        $this->logger->debug('Network exists', [
+            'user' => $user,
+            'network_name' => $networkName,
+        ]);
+
+        return true;
+    }
+
+    /**
+     * Ensure network exists for user, create if it doesn't
+     *
+     * @param string $user User name (user1, user2, user3)
+     * @return bool True on success, false on failure
+     */
+    public function ensureUserNetwork(string $user): bool
+    {
+        if ($this->networkExists($user)) {
+            $this->logger->debug('Network already exists for user', ['user' => $user]);
+
+            return true;
+        }
+
+        $this->logger->info('Network does not exist, creating for user', ['user' => $user]);
+
+        return $this->createUserNetwork($user);
+    }
+
+    /**
+     * Get network name for a user
+     *
+     * @param string $user User name (user1, user2, user3)
+     * @return string|false Network name or false on error
+     */
+    public function getNetworkName(string $user)
+    {
+        if (! array_key_exists($user, self::USER_VLAN_MAP)) {
+            return false;
+        }
+
+        $vlanId = self::USER_VLAN_MAP[$user];
+
+        return "vm-network-{$vlanId}";
     }
 
     /**

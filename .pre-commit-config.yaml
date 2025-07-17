@@ -3,25 +3,26 @@ repos:
     hooks:
       - id: php-cs-fixer
         name: PHP CS Fixer
-        entry: vendor/bin/php-cs-fixer fix --dry-run --diff
+        entry: docker compose exec -T php-app vendor/bin/php-cs-fixer fix --dry-run --diff
         language: system
         files: \.php$
         pass_filenames: false
-        
+
       - id: phpstan
         name: PHPStan
-        entry: vendor/bin/phpstan analyse src tests --level=8
+        entry: docker compose exec -T php-app vendor/bin/phpstan analyse src tests --level=8
         language: system
         files: \.php$
         pass_filenames: false
-        
+
       - id: phpunit
         name: PHPUnit
-        entry: vendor/bin/phpunit
+        entry: docker compose exec -T php-app vendor/bin/phpunit --no-coverage
         language: system
         files: \.php$
         pass_filenames: false
-        
+        verbose: true
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.4.0
     hooks:
@@ -30,7 +31,7 @@ repos:
       - id: check-yaml
       - id: check-json
       - id: check-merge-conflict
-      
+
   - repo: https://github.com/compilerla/conventional-pre-commit
     rev: v3.0.0
     hooks:
