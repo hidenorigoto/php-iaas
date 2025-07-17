@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace VmManagement;
 
-use Monolog\Logger;
-use Monolog\Handler\StreamHandler;
-use Monolog\Handler\RotatingFileHandler;
 use InvalidArgumentException;
+use Monolog\Handler\RotatingFileHandler;
+use Monolog\Handler\StreamHandler;
+use Monolog\Logger;
 
 /**
  * VMManager class for managing virtual machines using libvirt-php
@@ -15,10 +15,10 @@ use InvalidArgumentException;
 class VMManager
 {
     private Logger $logger;
-    
+
     /** @var resource|null */
     private $libvirtConnection = null;
-    
+
     /** @var array<string, int> */
     private const USER_VLAN_MAP = [
         'user1' => 100,
@@ -30,6 +30,9 @@ class VMManager
     private const DEFAULT_MEMORY = 2048;
     private const DEFAULT_DISK = 20;
     private const LIBVIRT_URI = 'qemu:///system';
+    private const DEFAULT_STORAGE_POOL = 'default';
+    private const DEFAULT_DISK_PATH = '/var/lib/libvirt/images/';
+    private const DEFAULT_BASE_IMAGE = '/var/lib/libvirt/images/ubuntu-20.04-server-amd64.iso';
 
     /**
      * Constructor for VMManager
@@ -50,7 +53,7 @@ class VMManager
     private function createDefaultLogger(): Logger
     {
         $logger = new Logger('vm-management');
-        
+
         // Add rotating file handler for persistent logging
         $fileHandler = new RotatingFileHandler(
             __DIR__ . '/../logs/vm-management.log',
@@ -58,11 +61,11 @@ class VMManager
             Logger::INFO
         );
         $logger->pushHandler($fileHandler);
-        
+
         // Add stream handler for development
         $streamHandler = new StreamHandler('php://stdout', Logger::DEBUG);
         $logger->pushHandler($streamHandler);
-        
+
         return $logger;
     }
 
@@ -75,11 +78,11 @@ class VMManager
     public function validateVMParams(array $params): void
     {
         // Validate VM name
-        if (empty($params['name']) || !is_string($params['name'])) {
+        if (empty($params['name']) || ! is_string($params['name'])) {
             throw new InvalidArgumentException('VM name is required and must be a string');
         }
 
-        if (!preg_match('/^[a-zA-Z0-9\-_]+$/', $params['name'])) {
+        if (! preg_match('/^[a-zA-Z0-9\-_]+$/', $params['name'])) {
             throw new InvalidArgumentException('VM name can only contain alphanumeric characters, hyphens, and underscores');
         }
 
@@ -88,31 +91,31 @@ class VMManager
         }
 
         // Validate user
-        if (empty($params['user']) || !is_string($params['user'])) {
+        if (empty($params['user']) || ! is_string($params['user'])) {
             throw new InvalidArgumentException('User is required and must be a string');
         }
 
-        if (!array_key_exists($params['user'], self::USER_VLAN_MAP)) {
+        if (! array_key_exists($params['user'], self::USER_VLAN_MAP)) {
             throw new InvalidArgumentException('User must be one of: user1, user2, user3');
         }
 
         // Validate CPU (optional)
         if (isset($params['cpu'])) {
-            if (!is_int($params['cpu']) || $params['cpu'] < 1 || $params['cpu'] > 8) {
+            if (! is_int($params['cpu']) || $params['cpu'] < 1 || $params['cpu'] > 8) {
                 throw new InvalidArgumentException('CPU must be an integer between 1 and 8');
             }
         }
 
         // Validate memory (optional)
         if (isset($params['memory'])) {
-            if (!is_int($params['memory']) || $params['memory'] < 512 || $params['memory'] > 8192) {
+            if (! is_int($params['memory']) || $params['memory'] < 512 || $params['memory'] > 8192) {
                 throw new InvalidArgumentException('Memory must be an integer between 512 and 8192 MB');
             }
         }
 
         // Validate disk (optional)
         if (isset($params['disk'])) {
-            if (!is_int($params['disk']) || $params['disk'] < 10 || $params['disk'] > 100) {
+            if (! is_int($params['disk']) || $params['disk'] < 10 || $params['disk'] > 100) {
                 throw new InvalidArgumentException('Disk must be an integer between 10 and 100 GB');
             }
         }
@@ -203,31 +206,34 @@ class VMManager
     {
         if ($this->isConnected()) {
             $this->logger->debug('Already connected to libvirt');
+
             return true;
         }
 
         $this->logger->info('Attempting to connect to libvirt', ['uri' => self::LIBVIRT_URI]);
 
         // Check if libvirt_connect function exists (for testing compatibility)
-        if (!function_exists('libvirt_connect')) {
+        if (! function_exists('libvirt_connect')) {
             $this->logger->error('libvirt_connect function not available');
+
             return false;
         }
 
         $connection = libvirt_connect(self::LIBVIRT_URI);
-        
+
         if ($connection === false) {
             $error = $this->getLastLibvirtError();
             $this->logger->error('Failed to connect to libvirt', [
                 'uri' => self::LIBVIRT_URI,
-                'error' => $error
+                'error' => $error,
             ]);
+
             return false;
         }
 
         $this->libvirtConnection = $connection;
         $this->logger->info('Successfully connected to libvirt');
-        
+
         return true;
     }
 
@@ -248,27 +254,30 @@ class VMManager
      */
     public function disconnect(): bool
     {
-        if (!$this->isConnected()) {
+        if (! $this->isConnected()) {
             $this->logger->debug('Not connected to libvirt, nothing to disconnect');
+
             return true;
         }
 
         $this->logger->info('Disconnecting from libvirt');
-        
+
         // Check if libvirt_connect_close function exists (for testing compatibility)
         if (function_exists('libvirt_connect_close')) {
             $result = libvirt_connect_close($this->libvirtConnection);
-            
+
             if ($result === false) {
                 $error = $this->getLastLibvirtError();
                 $this->logger->error('Failed to disconnect from libvirt', ['error' => $error]);
                 $this->libvirtConnection = null;
+
                 return false;
             }
         }
-        
+
         $this->libvirtConnection = null;
         $this->logger->info('Successfully disconnected from libvirt');
+
         return true;
     }
 
@@ -281,8 +290,10 @@ class VMManager
     {
         if (function_exists('libvirt_get_last_error')) {
             $error = libvirt_get_last_error();
+
             return $error !== false ? $error : 'Unknown libvirt error';
         }
+
         return 'libvirt_get_last_error function not available';
     }
 
@@ -294,6 +305,295 @@ class VMManager
     public function getConnection()
     {
         return $this->libvirtConnection;
+    }
+
+    /**
+     * Get storage pool by name
+     *
+     * @param string $poolName Storage pool name
+     * @return resource|false Storage pool resource or false on failure
+     */
+    public function getStoragePool(string $poolName = self::DEFAULT_STORAGE_POOL)
+    {
+        if (! $this->isConnected()) {
+            $this->logger->error('Not connected to libvirt');
+
+            return false;
+        }
+
+        $this->logger->info('Looking up storage pool', ['pool_name' => $poolName]);
+
+        // Check if libvirt_storagepool_lookup_by_name function exists
+        if (! function_exists('libvirt_storagepool_lookup_by_name')) {
+            $this->logger->error('libvirt_storagepool_lookup_by_name function not available');
+
+            return false;
+        }
+
+        $pool = libvirt_storagepool_lookup_by_name($this->libvirtConnection, $poolName);
+
+        if ($pool === false) {
+            $error = $this->getLastLibvirtError();
+            $this->logger->error('Failed to lookup storage pool', [
+                'pool_name' => $poolName,
+                'error' => $error,
+            ]);
+
+            return false;
+        }
+
+        $this->logger->info('Successfully found storage pool', ['pool_name' => $poolName]);
+
+        return $pool;
+    }
+
+    /**
+     * Create disk volume in storage pool
+     *
+     * @param string $volumeName Volume name
+     * @param int $sizeGB Volume size in GB
+     * @param string $poolName Storage pool name
+     * @return string|false Volume path on success, false on failure
+     */
+    public function createDiskVolume(string $volumeName, int $sizeGB, string $poolName = self::DEFAULT_STORAGE_POOL)
+    {
+        $this->logger->info('Creating disk volume', [
+            'volume_name' => $volumeName,
+            'size_gb' => $sizeGB,
+            'pool_name' => $poolName,
+        ]);
+
+        // Get storage pool
+        $pool = $this->getStoragePool($poolName);
+        if ($pool === false) {
+            return false;
+        }
+
+        // Generate volume XML configuration
+        $volumeXml = $this->generateVolumeXml($volumeName, $sizeGB);
+
+        // Check if libvirt_storagevolume_create_xml function exists
+        if (! function_exists('libvirt_storagevolume_create_xml')) {
+            $this->logger->error('libvirt_storagevolume_create_xml function not available');
+
+            return false;
+        }
+
+        $volume = libvirt_storagevolume_create_xml($pool, $volumeXml);
+
+        if ($volume === false) {
+            $error = $this->getLastLibvirtError();
+            $this->logger->error('Failed to create disk volume', [
+                'volume_name' => $volumeName,
+                'error' => $error,
+            ]);
+
+            return false;
+        }
+
+        // Get volume path
+        $volumePath = $this->getVolumePath($volume);
+
+        if ($volumePath === false) {
+            $this->logger->error('Failed to get volume path', ['volume_name' => $volumeName]);
+
+            return false;
+        }
+
+        $this->logger->info('Successfully created disk volume', [
+            'volume_name' => $volumeName,
+            'volume_path' => $volumePath,
+            'size_gb' => $sizeGB,
+        ]);
+
+        return $volumePath;
+    }
+
+    /**
+     * Generate XML configuration for storage volume
+     *
+     * @param string $volumeName Volume name
+     * @param int $sizeGB Volume size in GB
+     * @return string XML configuration
+     */
+    private function generateVolumeXml(string $volumeName, int $sizeGB): string
+    {
+        $sizeBytes = $sizeGB * 1024 * 1024 * 1024; // Convert GB to bytes
+
+        $xml = <<<XML
+            <volume type='file'>
+              <name>{$volumeName}.qcow2</name>
+              <key>{$volumeName}.qcow2</key>
+              <source>
+              </source>
+              <capacity unit='bytes'>{$sizeBytes}</capacity>
+              <allocation unit='bytes'>0</allocation>
+              <target>
+                <path>{$this->getVolumeTargetPath($volumeName)}</path>
+                <format type='qcow2'/>
+                <permissions>
+                  <mode>0644</mode>
+                  <owner>0</owner>
+                  <group>0</group>
+                </permissions>
+              </target>
+            </volume>
+            XML;
+
+        $this->logger->debug('Generated volume XML', [
+            'volume_name' => $volumeName,
+            'xml' => $xml,
+        ]);
+
+        return $xml;
+    }
+
+    /**
+     * Get target path for volume
+     *
+     * @param string $volumeName Volume name
+     * @return string Target path
+     */
+    private function getVolumeTargetPath(string $volumeName): string
+    {
+        return self::DEFAULT_DISK_PATH . $volumeName . '.qcow2';
+    }
+
+    /**
+     * Get volume path from volume resource
+     *
+     * @param resource $volume Volume resource
+     * @return string|false Volume path or false on failure
+     */
+    private function getVolumePath($volume)
+    {
+        // Check if libvirt_storagevolume_get_path function exists
+        if (! function_exists('libvirt_storagevolume_get_path')) {
+            $this->logger->error('libvirt_storagevolume_get_path function not available');
+
+            return false;
+        }
+
+        $path = libvirt_storagevolume_get_path($volume);
+
+        if ($path === false) {
+            $error = $this->getLastLibvirtError();
+            $this->logger->error('Failed to get volume path', ['error' => $error]);
+
+            return false;
+        }
+
+        return $path;
+    }
+
+    /**
+     * Create qcow2 disk image using qemu-img
+     *
+     * @param string $imagePath Path for the new image
+     * @param int $sizeGB Image size in GB
+     * @param string|null $baseImage Base image path for backing file
+     * @return bool True on success, false on failure
+     */
+    public function createQcow2Image(string $imagePath, int $sizeGB, ?string $baseImage = null): bool
+    {
+        $this->logger->info('Creating qcow2 disk image', [
+            'image_path' => $imagePath,
+            'size_gb' => $sizeGB,
+            'base_image' => $baseImage,
+        ]);
+
+        // Build qemu-img command
+        $command = 'qemu-img create -f qcow2';
+
+        if ($baseImage !== null && $this->fileExists($baseImage)) {
+            $command .= " -b " . escapeshellarg($baseImage);
+            $this->logger->debug('Using base image', ['base_image' => $baseImage]);
+        }
+
+        $command .= ' ' . escapeshellarg($imagePath) . ' ' . $sizeGB . 'G';
+
+        $this->logger->debug('Executing qemu-img command', ['command' => $command]);
+
+        // Execute command
+        $output = [];
+        $returnCode = 0;
+        exec($command . ' 2>&1', $output, $returnCode);
+
+        if ($returnCode !== 0) {
+            $this->logger->error('Failed to create qcow2 image', [
+                'command' => $command,
+                'return_code' => $returnCode,
+                'output' => implode("\n", $output),
+            ]);
+
+            return false;
+        }
+
+        $this->logger->info('Successfully created qcow2 image', [
+            'image_path' => $imagePath,
+            'size_gb' => $sizeGB,
+        ]);
+
+        return true;
+    }
+
+    /**
+     * Copy base image to create new VM disk
+     *
+     * @param string $baseImagePath Source base image path
+     * @param string $targetImagePath Target image path
+     * @return bool True on success, false on failure
+     */
+    public function copyBaseImage(string $baseImagePath, string $targetImagePath): bool
+    {
+        $this->logger->info('Copying base image', [
+            'base_image' => $baseImagePath,
+            'target_image' => $targetImagePath,
+        ]);
+
+        // Check if base image exists
+        if (! $this->fileExists($baseImagePath)) {
+            $this->logger->error('Base image does not exist', ['base_image' => $baseImagePath]);
+
+            return false;
+        }
+
+        // Use cp command to copy the image
+        $command = 'cp ' . escapeshellarg($baseImagePath) . ' ' . escapeshellarg($targetImagePath);
+
+        $this->logger->debug('Executing copy command', ['command' => $command]);
+
+        $output = [];
+        $returnCode = 0;
+        exec($command . ' 2>&1', $output, $returnCode);
+
+        if ($returnCode !== 0) {
+            $this->logger->error('Failed to copy base image', [
+                'command' => $command,
+                'return_code' => $returnCode,
+                'output' => implode("\n", $output),
+            ]);
+
+            return false;
+        }
+
+        $this->logger->info('Successfully copied base image', [
+            'base_image' => $baseImagePath,
+            'target_image' => $targetImagePath,
+        ]);
+
+        return true;
+    }
+
+    /**
+     * Check if file exists
+     *
+     * @param string $filePath File path to check
+     * @return bool True if file exists, false otherwise
+     */
+    private function fileExists(string $filePath): bool
+    {
+        return file_exists($filePath);
     }
 
     /**

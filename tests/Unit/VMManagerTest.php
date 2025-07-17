@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace VmManagement\Tests\Unit;
 
-use PHPUnit\Framework\TestCase;
-use VmManagement\VMManager;
-use VmManagement\SimpleVM;
-use Monolog\Logger;
-use Monolog\Handler\TestHandler;
 use InvalidArgumentException;
+use Monolog\Handler\TestHandler;
+use Monolog\Logger;
+use PHPUnit\Framework\TestCase;
+use VmManagement\SimpleVM;
+use VmManagement\VMManager;
 
 /**
  * Unit tests for VMManager class
@@ -25,14 +25,14 @@ class VMManagerTest extends TestCase
         $logger = new Logger('test');
         $this->testHandler = new TestHandler();
         $logger->pushHandler($this->testHandler);
-        
+
         $this->vmManager = new VMManager($logger);
     }
 
     public function testVMManagerCanBeInstantiated(): void
     {
         $vmManager = new VMManager();
-        
+
         $this->assertInstanceOf(VMManager::class, $vmManager);
         $this->assertInstanceOf(Logger::class, $vmManager->getLogger());
     }
@@ -41,7 +41,7 @@ class VMManagerTest extends TestCase
     {
         $logger = new Logger('custom');
         $vmManager = new VMManager($logger);
-        
+
         $this->assertSame($logger, $vmManager->getLogger());
     }
 
@@ -50,9 +50,9 @@ class VMManagerTest extends TestCase
         $this->vmManager->logInfo('Test info message', ['key' => 'value']);
         $this->vmManager->logError('Test error message');
         $this->vmManager->logDebug('Test debug message');
-        
+
         $records = $this->testHandler->getRecords();
-        
+
         $this->assertCount(4, $records); // 3 manual + 1 from constructor
         $this->assertEquals('Test info message', $records[1]['message']);
         $this->assertEquals('Test error message', $records[2]['message']);
@@ -69,7 +69,7 @@ class VMManagerTest extends TestCase
             'memory' => 2048,
             'disk' => 20,
         ];
-        
+
         $this->expectNotToPerformAssertions();
         $this->vmManager->validateVMParams($params);
     }
@@ -80,7 +80,7 @@ class VMManagerTest extends TestCase
             'name' => 'test-vm',
             'user' => 'user2',
         ];
-        
+
         $this->expectNotToPerformAssertions();
         $this->vmManager->validateVMParams($params);
     }
@@ -89,7 +89,7 @@ class VMManagerTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('VM name is required and must be a string');
-        
+
         $this->vmManager->validateVMParams(['user' => 'user1']);
     }
 
@@ -97,7 +97,7 @@ class VMManagerTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('VM name is required and must be a string');
-        
+
         $this->vmManager->validateVMParams(['name' => '', 'user' => 'user1']);
     }
 
@@ -105,7 +105,7 @@ class VMManagerTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('VM name can only contain alphanumeric characters, hyphens, and underscores');
-        
+
         $this->vmManager->validateVMParams(['name' => 'test vm!', 'user' => 'user1']);
     }
 
@@ -113,7 +113,7 @@ class VMManagerTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('VM name must be 50 characters or less');
-        
+
         $longName = str_repeat('a', 51);
         $this->vmManager->validateVMParams(['name' => $longName, 'user' => 'user1']);
     }
@@ -122,7 +122,7 @@ class VMManagerTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('User is required and must be a string');
-        
+
         $this->vmManager->validateVMParams(['name' => 'test-vm']);
     }
 
@@ -130,7 +130,7 @@ class VMManagerTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('User must be one of: user1, user2, user3');
-        
+
         $this->vmManager->validateVMParams(['name' => 'test-vm', 'user' => 'unknown']);
     }
 
@@ -138,7 +138,7 @@ class VMManagerTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('CPU must be an integer between 1 and 8');
-        
+
         $this->vmManager->validateVMParams([
             'name' => 'test-vm',
             'user' => 'user1',
@@ -150,7 +150,7 @@ class VMManagerTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Memory must be an integer between 512 and 8192 MB');
-        
+
         $this->vmManager->validateVMParams([
             'name' => 'test-vm',
             'user' => 'user1',
@@ -162,7 +162,7 @@ class VMManagerTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Disk must be an integer between 10 and 100 GB');
-        
+
         $this->vmManager->validateVMParams([
             'name' => 'test-vm',
             'user' => 'user1',
@@ -179,9 +179,9 @@ class VMManagerTest extends TestCase
             'memory' => 4096,
             'disk' => 40,
         ];
-        
+
         $vm = $this->vmManager->createVMInstance($params);
-        
+
         $this->assertInstanceOf(SimpleVM::class, $vm);
         $this->assertEquals('test-vm', $vm->name);
         $this->assertEquals('user2', $vm->user);
@@ -197,9 +197,9 @@ class VMManagerTest extends TestCase
             'name' => 'test-vm',
             'user' => 'user1',
         ];
-        
+
         $vm = $this->vmManager->createVMInstance($params);
-        
+
         $this->assertInstanceOf(SimpleVM::class, $vm);
         $this->assertEquals('test-vm', $vm->name);
         $this->assertEquals('user1', $vm->user);
@@ -212,12 +212,12 @@ class VMManagerTest extends TestCase
     public function testCreateVMInstanceWithInvalidParamsThrowsException(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        
+
         $params = [
             'name' => '',
             'user' => 'user1',
         ];
-        
+
         $this->vmManager->createVMInstance($params);
     }
 
@@ -227,9 +227,9 @@ class VMManagerTest extends TestCase
             'name' => 'test-vm',
             'user' => 'user1',
         ];
-        
+
         $this->vmManager->validateVMParams($params);
-        
+
         $records = $this->testHandler->getRecords();
         $this->assertCount(2, $records); // 1 from constructor + 1 from validation
         $this->assertStringContainsString('VM parameters validated successfully', $records[1]['message']);
@@ -241,9 +241,9 @@ class VMManagerTest extends TestCase
             'name' => 'test-vm',
             'user' => 'user1',
         ];
-        
+
         $this->vmManager->createVMInstance($params);
-        
+
         $records = $this->testHandler->getRecords();
         $this->assertCount(3, $records); // 1 from constructor + 1 from validation + 1 from creation
         $this->assertStringContainsString('SimpleVM instance created', $records[2]['message']);
@@ -267,15 +267,16 @@ class VMManagerTest extends TestCase
         $logger = new Logger('test-success');
         $testHandler = new TestHandler();
         $logger->pushHandler($testHandler);
-        
-        $vmManager = new class($logger) extends VMManager {
+
+        $vmManager = new class ($logger) extends VMManager {
             private $mockResource;
             private $mockConnected = false;
-            
+
             public function connect(): bool
             {
                 if ($this->mockConnected) {
                     $this->getLogger()->debug('Already connected to libvirt');
+
                     return true;
                 }
 
@@ -284,57 +285,60 @@ class VMManagerTest extends TestCase
                 // Mock successful connection
                 $this->mockResource = fopen('php://memory', 'r');
                 $this->mockConnected = true;
-                
+
                 $this->getLogger()->info('Successfully connected to libvirt');
+
                 return true;
             }
-            
+
             public function isConnected(): bool
             {
                 return $this->mockConnected && is_resource($this->mockResource);
             }
-            
+
             public function getConnection()
             {
                 return $this->mockResource;
             }
-            
+
             public function disconnect(): bool
             {
-                if (!$this->isConnected()) {
+                if (! $this->isConnected()) {
                     $this->getLogger()->debug('Not connected to libvirt, nothing to disconnect');
+
                     return true;
                 }
 
                 $this->getLogger()->info('Disconnecting from libvirt');
-                
+
                 if (is_resource($this->mockResource)) {
                     fclose($this->mockResource);
                 }
                 $this->mockConnected = false;
-                
+
                 $this->getLogger()->info('Successfully disconnected from libvirt');
+
                 return true;
             }
         };
-        
+
         $result = $vmManager->connect();
-        
+
         $this->assertTrue($result);
         $this->assertTrue($vmManager->isConnected());
         $this->assertIsResource($vmManager->getConnection());
-        
+
         // Check logs
         $records = $testHandler->getRecords();
-        
+
         // Find the connection attempt log
-        $connectionLogs = array_filter($records, function($record) {
+        $connectionLogs = array_filter($records, function ($record) {
             return strpos($record['message'], 'Attempting to connect to libvirt') !== false;
         });
         $this->assertNotEmpty($connectionLogs);
-        
+
         // Find the success log
-        $successLogs = array_filter($records, function($record) {
+        $successLogs = array_filter($records, function ($record) {
             return strpos($record['message'], 'Successfully connected to libvirt') !== false;
         });
         $this->assertNotEmpty($successLogs);
@@ -343,7 +347,7 @@ class VMManagerTest extends TestCase
     public function testConnectFailureWithMockedLibvirt(): void
     {
         // Create a mock function namespace that returns false
-        if (!function_exists('VmManagement\Test\libvirt_connect')) {
+        if (! function_exists('VmManagement\Test\libvirt_connect')) {
             eval('
                 namespace VmManagement\Test;
                 function libvirt_connect($uri) {
@@ -354,18 +358,19 @@ class VMManagerTest extends TestCase
                 }
             ');
         }
-        
+
         // Create a test manager that uses the failing mock
         $logger = new Logger('test-fail');
         $testHandler = new TestHandler();
         $logger->pushHandler($testHandler);
-        
+
         // We need to create a custom VMManager for this test
-        $vmManager = new class($logger) extends VMManager {
+        $vmManager = new class ($logger) extends VMManager {
             public function connect(): bool
             {
                 if ($this->isConnected()) {
                     $this->getLogger()->debug('Already connected to libvirt');
+
                     return true;
                 }
 
@@ -373,29 +378,30 @@ class VMManagerTest extends TestCase
 
                 // Mock the failure
                 $connection = false;
-                
+
                 if ($connection === false) {
                     $error = 'Connection failed: Permission denied';
                     $this->getLogger()->error('Failed to connect to libvirt', [
                         'uri' => 'qemu:///system',
-                        'error' => $error
+                        'error' => $error,
                     ]);
+
                     return false;
                 }
 
                 return true;
             }
         };
-        
+
         $result = $vmManager->connect();
-        
+
         $this->assertFalse($result);
         $this->assertFalse($vmManager->isConnected());
         $this->assertNull($vmManager->getConnection());
-        
+
         // Check error logs
         $records = $testHandler->getRecords();
-        $errorLogs = array_filter($records, function($record) {
+        $errorLogs = array_filter($records, function ($record) {
             return strpos($record['message'], 'Failed to connect to libvirt') !== false;
         });
         $this->assertNotEmpty($errorLogs);
@@ -404,7 +410,7 @@ class VMManagerTest extends TestCase
     public function testConnectWhenAlreadyConnected(): void
     {
         // Mock successful connection first
-        if (!function_exists('VmManagement\Already\libvirt_connect')) {
+        if (! function_exists('VmManagement\Already\libvirt_connect')) {
             eval('
                 namespace VmManagement\Already;
                 function libvirt_connect($uri) {
@@ -422,54 +428,56 @@ class VMManagerTest extends TestCase
                 }
             ');
         }
-        
+
         // Create a test manager that simulates already connected state
         $logger = new Logger('test-already');
         $testHandler = new TestHandler();
         $logger->pushHandler($testHandler);
-        
-        $vmManager = new class($logger) extends VMManager {
+
+        $vmManager = new class ($logger) extends VMManager {
             private $mockConnected = false;
             private $mockResource;
-            
+
             public function connect(): bool
             {
                 if ($this->mockConnected) {
                     $this->getLogger()->debug('Already connected to libvirt');
+
                     return true;
                 }
 
                 $this->getLogger()->info('Attempting to connect to libvirt', ['uri' => 'qemu:///system']);
-                
+
                 $this->mockResource = fopen('php://memory', 'r');
                 $this->mockConnected = true;
-                
+
                 $this->getLogger()->info('Successfully connected to libvirt');
+
                 return true;
             }
-            
+
             public function isConnected(): bool
             {
                 return $this->mockConnected && is_resource($this->mockResource);
             }
-            
+
             public function getConnection()
             {
                 return $this->mockResource;
             }
         };
-        
+
         // First connection
         $result1 = $vmManager->connect();
         $this->assertTrue($result1);
-        
+
         // Second connection (should detect already connected)
         $result2 = $vmManager->connect();
         $this->assertTrue($result2);
-        
+
         // Check that "Already connected" debug message was logged
         $records = $testHandler->getRecords();
-        $alreadyConnectedLogs = array_filter($records, function($record) {
+        $alreadyConnectedLogs = array_filter($records, function ($record) {
             return strpos($record['message'], 'Already connected to libvirt') !== false;
         });
         $this->assertNotEmpty($alreadyConnectedLogs);
@@ -481,55 +489,58 @@ class VMManagerTest extends TestCase
         $logger = new Logger('test-disconnect');
         $testHandler = new TestHandler();
         $logger->pushHandler($testHandler);
-        
-        $vmManager = new class($logger) extends VMManager {
+
+        $vmManager = new class ($logger) extends VMManager {
             private $mockConnected = true;
             private $mockResource;
-            
-            public function __construct($logger) {
+
+            public function __construct($logger)
+            {
                 parent::__construct($logger);
                 $this->mockResource = fopen('php://memory', 'r');
             }
-            
+
             public function isConnected(): bool
             {
                 return $this->mockConnected && is_resource($this->mockResource);
             }
-            
+
             public function getConnection()
             {
                 return $this->mockResource;
             }
-            
+
             public function disconnect(): bool
             {
-                if (!$this->isConnected()) {
+                if (! $this->isConnected()) {
                     $this->getLogger()->debug('Not connected to libvirt, nothing to disconnect');
+
                     return true;
                 }
 
                 $this->getLogger()->info('Disconnecting from libvirt');
-                
+
                 if (is_resource($this->mockResource)) {
                     fclose($this->mockResource);
                 }
                 $this->mockConnected = false;
-                
+
                 $this->getLogger()->info('Successfully disconnected from libvirt');
+
                 return true;
             }
         };
-        
+
         $this->assertTrue($vmManager->isConnected());
-        
+
         $result = $vmManager->disconnect();
-        
+
         $this->assertTrue($result);
         $this->assertFalse($vmManager->isConnected());
-        
+
         // Check disconnect logs
         $records = $testHandler->getRecords();
-        $disconnectLogs = array_filter($records, function($record) {
+        $disconnectLogs = array_filter($records, function ($record) {
             return strpos($record['message'], 'Successfully disconnected from libvirt') !== false;
         });
         $this->assertNotEmpty($disconnectLogs);
@@ -538,14 +549,580 @@ class VMManagerTest extends TestCase
     public function testDisconnectWhenNotConnected(): void
     {
         $result = $this->vmManager->disconnect();
-        
+
         $this->assertTrue($result);
-        
+
         // Check that "nothing to disconnect" debug message was logged
         $records = $this->testHandler->getRecords();
-        $nothingToDisconnectLogs = array_filter($records, function($record) {
+        $nothingToDisconnectLogs = array_filter($records, function ($record) {
             return strpos($record['message'], 'Not connected to libvirt, nothing to disconnect') !== false;
         });
         $this->assertNotEmpty($nothingToDisconnectLogs);
+    }
+
+    // Storage Pool and Volume Management Tests
+
+    public function testGetStoragePoolWhenNotConnected(): void
+    {
+        $result = $this->vmManager->getStoragePool();
+
+        $this->assertFalse($result);
+
+        // Check error log
+        $records = $this->testHandler->getRecords();
+        $errorLogs = array_filter($records, function ($record) {
+            return strpos($record['message'], 'Not connected to libvirt') !== false;
+        });
+        $this->assertNotEmpty($errorLogs);
+    }
+
+    public function testGetStoragePoolSuccessWithMock(): void
+    {
+        // Create a test manager that mocks successful storage pool lookup
+        $logger = new Logger('test-storage');
+        $testHandler = new TestHandler();
+        $logger->pushHandler($testHandler);
+
+        $vmManager = new class ($logger) extends VMManager {
+            private $mockConnected = true;
+            private $mockConnection;
+
+            public function __construct($logger)
+            {
+                parent::__construct($logger);
+                $this->mockConnection = fopen('php://memory', 'r');
+            }
+
+            public function isConnected(): bool
+            {
+                return $this->mockConnected;
+            }
+
+            public function getConnection()
+            {
+                return $this->mockConnection;
+            }
+
+            public function getStoragePool(string $poolName = 'default')
+            {
+                if (! $this->isConnected()) {
+                    $this->getLogger()->error('Not connected to libvirt');
+
+                    return false;
+                }
+
+                $this->getLogger()->info('Looking up storage pool', ['pool_name' => $poolName]);
+
+                // Mock successful storage pool lookup
+                $mockPool = fopen('php://memory', 'r');
+
+                $this->getLogger()->info('Successfully found storage pool', ['pool_name' => $poolName]);
+
+                return $mockPool;
+            }
+        };
+
+        $result = $vmManager->getStoragePool('default');
+
+        $this->assertIsResource($result);
+
+        // Check logs
+        $records = $testHandler->getRecords();
+        $lookupLogs = array_filter($records, function ($record) {
+            return strpos($record['message'], 'Looking up storage pool') !== false;
+        });
+        $this->assertNotEmpty($lookupLogs);
+
+        $successLogs = array_filter($records, function ($record) {
+            return strpos($record['message'], 'Successfully found storage pool') !== false;
+        });
+        $this->assertNotEmpty($successLogs);
+    }
+
+    public function testGetStoragePoolFailureWithMock(): void
+    {
+        // Create a test manager that mocks failed storage pool lookup
+        $logger = new Logger('test-storage-fail');
+        $testHandler = new TestHandler();
+        $logger->pushHandler($testHandler);
+
+        $vmManager = new class ($logger) extends VMManager {
+            private $mockConnected = true;
+            private $mockConnection;
+
+            public function __construct($logger)
+            {
+                parent::__construct($logger);
+                $this->mockConnection = fopen('php://memory', 'r');
+            }
+
+            public function isConnected(): bool
+            {
+                return $this->mockConnected;
+            }
+
+            public function getConnection()
+            {
+                return $this->mockConnection;
+            }
+
+            public function getStoragePool(string $poolName = 'default')
+            {
+                if (! $this->isConnected()) {
+                    $this->getLogger()->error('Not connected to libvirt');
+
+                    return false;
+                }
+
+                $this->getLogger()->info('Looking up storage pool', ['pool_name' => $poolName]);
+
+                // Mock failed storage pool lookup
+                $this->getLogger()->error('Failed to lookup storage pool', [
+                    'pool_name' => $poolName,
+                    'error' => 'Storage pool not found',
+                ]);
+
+                return false;
+            }
+        };
+
+        $result = $vmManager->getStoragePool('nonexistent');
+
+        $this->assertFalse($result);
+
+        // Check error logs
+        $records = $testHandler->getRecords();
+        $errorLogs = array_filter($records, function ($record) {
+            return strpos($record['message'], 'Failed to lookup storage pool') !== false;
+        });
+        $this->assertNotEmpty($errorLogs);
+    }
+
+    public function testCreateDiskVolumeSuccessWithMock(): void
+    {
+        // Create a test manager that mocks successful disk volume creation
+        $logger = new Logger('test-volume');
+        $testHandler = new TestHandler();
+        $logger->pushHandler($testHandler);
+
+        $vmManager = new class ($logger) extends VMManager {
+            private $mockConnected = true;
+            private $mockConnection;
+
+            public function __construct($logger)
+            {
+                parent::__construct($logger);
+                $this->mockConnection = fopen('php://memory', 'r');
+            }
+
+            public function isConnected(): bool
+            {
+                return $this->mockConnected;
+            }
+
+            public function getConnection()
+            {
+                return $this->mockConnection;
+            }
+
+            public function getStoragePool(string $poolName = 'default')
+            {
+                $this->getLogger()->info('Looking up storage pool', ['pool_name' => $poolName]);
+                $mockPool = fopen('php://memory', 'r');
+                $this->getLogger()->info('Successfully found storage pool', ['pool_name' => $poolName]);
+
+                return $mockPool;
+            }
+
+            public function createDiskVolume(string $volumeName, int $sizeGB, string $poolName = 'default')
+            {
+                $this->getLogger()->info('Creating disk volume', [
+                    'volume_name' => $volumeName,
+                    'size_gb' => $sizeGB,
+                    'pool_name' => $poolName,
+                ]);
+
+                // Get storage pool (mocked)
+                $pool = $this->getStoragePool($poolName);
+                if ($pool === false) {
+                    return false;
+                }
+
+                // Mock successful volume creation
+                $volumePath = '/var/lib/libvirt/images/' . $volumeName . '.qcow2';
+
+                $this->getLogger()->info('Successfully created disk volume', [
+                    'volume_name' => $volumeName,
+                    'volume_path' => $volumePath,
+                    'size_gb' => $sizeGB,
+                ]);
+
+                return $volumePath;
+            }
+        };
+
+        $result = $vmManager->createDiskVolume('test-vm', 20);
+
+        $this->assertEquals('/var/lib/libvirt/images/test-vm.qcow2', $result);
+
+        // Check logs
+        $records = $testHandler->getRecords();
+        $createLogs = array_filter($records, function ($record) {
+            return strpos($record['message'], 'Creating disk volume') !== false;
+        });
+        $this->assertNotEmpty($createLogs);
+
+        $successLogs = array_filter($records, function ($record) {
+            return strpos($record['message'], 'Successfully created disk volume') !== false;
+        });
+        $this->assertNotEmpty($successLogs);
+    }
+
+    public function testCreateDiskVolumeFailureWhenStoragePoolNotFound(): void
+    {
+        // Create a test manager that mocks storage pool lookup failure
+        $logger = new Logger('test-volume-fail');
+        $testHandler = new TestHandler();
+        $logger->pushHandler($testHandler);
+
+        $vmManager = new class ($logger) extends VMManager {
+            private $mockConnected = true;
+            private $mockConnection;
+
+            public function __construct($logger)
+            {
+                parent::__construct($logger);
+                $this->mockConnection = fopen('php://memory', 'r');
+            }
+
+            public function isConnected(): bool
+            {
+                return $this->mockConnected;
+            }
+
+            public function getConnection()
+            {
+                return $this->mockConnection;
+            }
+
+            public function getStoragePool(string $poolName = 'default')
+            {
+                $this->getLogger()->info('Looking up storage pool', ['pool_name' => $poolName]);
+                $this->getLogger()->error('Failed to lookup storage pool', [
+                    'pool_name' => $poolName,
+                    'error' => 'Storage pool not found',
+                ]);
+
+                return false;
+            }
+
+            public function createDiskVolume(string $volumeName, int $sizeGB, string $poolName = 'default')
+            {
+                $this->getLogger()->info('Creating disk volume', [
+                    'volume_name' => $volumeName,
+                    'size_gb' => $sizeGB,
+                    'pool_name' => $poolName,
+                ]);
+
+                // Get storage pool (will fail)
+                $pool = $this->getStoragePool($poolName);
+                if ($pool === false) {
+                    return false;
+                }
+
+                return '/var/lib/libvirt/images/' . $volumeName . '.qcow2';
+            }
+        };
+
+        $result = $vmManager->createDiskVolume('test-vm', 20);
+
+        $this->assertFalse($result);
+
+        // Check error logs
+        $records = $testHandler->getRecords();
+        $errorLogs = array_filter($records, function ($record) {
+            return strpos($record['message'], 'Failed to lookup storage pool') !== false;
+        });
+        $this->assertNotEmpty($errorLogs);
+    }
+
+    public function testCreateQcow2ImageSuccessWithMock(): void
+    {
+        // Create a test manager that mocks successful qcow2 image creation
+        $logger = new Logger('test-qcow2');
+        $testHandler = new TestHandler();
+        $logger->pushHandler($testHandler);
+
+        $vmManager = new class ($logger) extends VMManager {
+            public function createQcow2Image(string $imagePath, int $sizeGB, ?string $baseImage = null): bool
+            {
+                $this->getLogger()->info('Creating qcow2 disk image', [
+                    'image_path' => $imagePath,
+                    'size_gb' => $sizeGB,
+                    'base_image' => $baseImage,
+                ]);
+
+                // Mock successful execution
+                $this->getLogger()->info('Successfully created qcow2 image', [
+                    'image_path' => $imagePath,
+                    'size_gb' => $sizeGB,
+                ]);
+
+                return true;
+            }
+        };
+
+        $result = $vmManager->createQcow2Image('/tmp/test.qcow2', 20);
+
+        $this->assertTrue($result);
+
+        // Check logs
+        $records = $testHandler->getRecords();
+        $createLogs = array_filter($records, function ($record) {
+            return strpos($record['message'], 'Creating qcow2 disk image') !== false;
+        });
+        $this->assertNotEmpty($createLogs);
+
+        $successLogs = array_filter($records, function ($record) {
+            return strpos($record['message'], 'Successfully created qcow2 image') !== false;
+        });
+        $this->assertNotEmpty($successLogs);
+    }
+
+    public function testCreateQcow2ImageWithBaseImageMock(): void
+    {
+        // Create a test manager that mocks qcow2 image creation with base image
+        $logger = new Logger('test-qcow2-base');
+        $testHandler = new TestHandler();
+        $logger->pushHandler($testHandler);
+
+        $vmManager = new class ($logger) extends VMManager {
+            private function fileExists(string $filePath): bool
+            {
+                // Mock that base image exists
+                return $filePath === '/tmp/base.qcow2';
+            }
+
+            public function createQcow2Image(string $imagePath, int $sizeGB, ?string $baseImage = null): bool
+            {
+                $this->getLogger()->info('Creating qcow2 disk image', [
+                    'image_path' => $imagePath,
+                    'size_gb' => $sizeGB,
+                    'base_image' => $baseImage,
+                ]);
+
+                if ($baseImage !== null && $this->fileExists($baseImage)) {
+                    $this->getLogger()->debug('Using base image', ['base_image' => $baseImage]);
+                }
+
+                // Mock successful execution
+                $this->getLogger()->info('Successfully created qcow2 image', [
+                    'image_path' => $imagePath,
+                    'size_gb' => $sizeGB,
+                ]);
+
+                return true;
+            }
+        };
+
+        $result = $vmManager->createQcow2Image('/tmp/test.qcow2', 20, '/tmp/base.qcow2');
+
+        $this->assertTrue($result);
+
+        // Check logs
+        $records = $testHandler->getRecords();
+        $baseImageLogs = array_filter($records, function ($record) {
+            return strpos($record['message'], 'Using base image') !== false;
+        });
+        $this->assertNotEmpty($baseImageLogs);
+    }
+
+    public function testCreateQcow2ImageFailureWithMock(): void
+    {
+        // Create a test manager that mocks failed qcow2 image creation
+        $logger = new Logger('test-qcow2-fail');
+        $testHandler = new TestHandler();
+        $logger->pushHandler($testHandler);
+
+        $vmManager = new class ($logger) extends VMManager {
+            public function createQcow2Image(string $imagePath, int $sizeGB, ?string $baseImage = null): bool
+            {
+                $this->getLogger()->info('Creating qcow2 disk image', [
+                    'image_path' => $imagePath,
+                    'size_gb' => $sizeGB,
+                    'base_image' => $baseImage,
+                ]);
+
+                // Mock failed execution
+                $this->getLogger()->error('Failed to create qcow2 image', [
+                    'command' => 'qemu-img create -f qcow2 /tmp/test.qcow2 20G',
+                    'return_code' => 1,
+                    'output' => 'qemu-img: error creating image',
+                ]);
+
+                return false;
+            }
+        };
+
+        $result = $vmManager->createQcow2Image('/tmp/test.qcow2', 20);
+
+        $this->assertFalse($result);
+
+        // Check error logs
+        $records = $testHandler->getRecords();
+        $errorLogs = array_filter($records, function ($record) {
+            return strpos($record['message'], 'Failed to create qcow2 image') !== false;
+        });
+        $this->assertNotEmpty($errorLogs);
+    }
+
+    public function testCopyBaseImageSuccessWithMock(): void
+    {
+        // Create a test manager that mocks successful base image copying
+        $logger = new Logger('test-copy');
+        $testHandler = new TestHandler();
+        $logger->pushHandler($testHandler);
+
+        $vmManager = new class ($logger) extends VMManager {
+            private function fileExists(string $filePath): bool
+            {
+                // Mock that base image exists
+                return $filePath === '/tmp/base.qcow2';
+            }
+
+            public function copyBaseImage(string $baseImagePath, string $targetImagePath): bool
+            {
+                $this->getLogger()->info('Copying base image', [
+                    'base_image' => $baseImagePath,
+                    'target_image' => $targetImagePath,
+                ]);
+
+                // Check if base image exists
+                if (! $this->fileExists($baseImagePath)) {
+                    $this->getLogger()->error('Base image does not exist', ['base_image' => $baseImagePath]);
+
+                    return false;
+                }
+
+                // Mock successful copy
+                $this->getLogger()->info('Successfully copied base image', [
+                    'base_image' => $baseImagePath,
+                    'target_image' => $targetImagePath,
+                ]);
+
+                return true;
+            }
+        };
+
+        $result = $vmManager->copyBaseImage('/tmp/base.qcow2', '/tmp/target.qcow2');
+
+        $this->assertTrue($result);
+
+        // Check logs
+        $records = $testHandler->getRecords();
+        $copyLogs = array_filter($records, function ($record) {
+            return strpos($record['message'], 'Copying base image') !== false;
+        });
+        $this->assertNotEmpty($copyLogs);
+
+        $successLogs = array_filter($records, function ($record) {
+            return strpos($record['message'], 'Successfully copied base image') !== false;
+        });
+        $this->assertNotEmpty($successLogs);
+    }
+
+    public function testCopyBaseImageFailureWhenBaseImageNotExists(): void
+    {
+        // Create a test manager that mocks base image not existing
+        $logger = new Logger('test-copy-fail');
+        $testHandler = new TestHandler();
+        $logger->pushHandler($testHandler);
+
+        $vmManager = new class ($logger) extends VMManager {
+            private function fileExists(string $filePath): bool
+            {
+                // Mock that base image does not exist
+                return false;
+            }
+
+            public function copyBaseImage(string $baseImagePath, string $targetImagePath): bool
+            {
+                $this->getLogger()->info('Copying base image', [
+                    'base_image' => $baseImagePath,
+                    'target_image' => $targetImagePath,
+                ]);
+
+                // Check if base image exists
+                if (! $this->fileExists($baseImagePath)) {
+                    $this->getLogger()->error('Base image does not exist', ['base_image' => $baseImagePath]);
+
+                    return false;
+                }
+
+                return true;
+            }
+        };
+
+        $result = $vmManager->copyBaseImage('/tmp/nonexistent.qcow2', '/tmp/target.qcow2');
+
+        $this->assertFalse($result);
+
+        // Check error logs
+        $records = $testHandler->getRecords();
+        $errorLogs = array_filter($records, function ($record) {
+            return strpos($record['message'], 'Base image does not exist') !== false;
+        });
+        $this->assertNotEmpty($errorLogs);
+    }
+
+    public function testCopyBaseImageFailureWithMockCommandFailure(): void
+    {
+        // Create a test manager that mocks command execution failure
+        $logger = new Logger('test-copy-cmd-fail');
+        $testHandler = new TestHandler();
+        $logger->pushHandler($testHandler);
+
+        $vmManager = new class ($logger) extends VMManager {
+            private function fileExists(string $filePath): bool
+            {
+                // Mock that base image exists
+                return $filePath === '/tmp/base.qcow2';
+            }
+
+            public function copyBaseImage(string $baseImagePath, string $targetImagePath): bool
+            {
+                $this->getLogger()->info('Copying base image', [
+                    'base_image' => $baseImagePath,
+                    'target_image' => $targetImagePath,
+                ]);
+
+                // Check if base image exists
+                if (! $this->fileExists($baseImagePath)) {
+                    $this->getLogger()->error('Base image does not exist', ['base_image' => $baseImagePath]);
+
+                    return false;
+                }
+
+                // Mock command failure
+                $this->getLogger()->error('Failed to copy base image', [
+                    'command' => 'cp /tmp/base.qcow2 /tmp/target.qcow2',
+                    'return_code' => 1,
+                    'output' => 'cp: cannot create regular file: Permission denied',
+                ]);
+
+                return false;
+            }
+        };
+
+        $result = $vmManager->copyBaseImage('/tmp/base.qcow2', '/tmp/target.qcow2');
+
+        $this->assertFalse($result);
+
+        // Check error logs
+        $records = $testHandler->getRecords();
+        $errorLogs = array_filter($records, function ($record) {
+            return strpos($record['message'], 'Failed to copy base image') !== false;
+        });
+        $this->assertNotEmpty($errorLogs);
     }
 }

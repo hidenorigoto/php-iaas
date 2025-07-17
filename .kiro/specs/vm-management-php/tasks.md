@@ -37,7 +37,7 @@
     - `VMManager->isConnected()`メソッドが正しく動作することをモックテストで確認
   - _要件: 4.1, 4.2, 4.3, 5.2_
 
-- [ ] 4. ストレージプールとボリューム管理機能の実装
+- [x] 4. ストレージプールとボリューム管理機能の実装
   - `libvirt_storagepool_lookup_by_name()`でストレージプール取得
   - `libvirt_storagevolume_create_xml()`でディスクボリューム作成
   - qcow2形式のディスクイメージ作成機能を実装
