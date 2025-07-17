@@ -49,7 +49,7 @@ class SimpleVM
         $this->username = 'ubuntu';
         $this->password = '';
         $this->createdAt = new DateTime();
-        
+
         // Set VLAN ID based on user
         $this->vlanId = $this->getVlanIdForUser($user);
     }

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace VmManagement\Tests\Unit;
 
+use DateTime;
 use PHPUnit\Framework\TestCase;
 use VmManagement\SimpleVM;
-use DateTime;
 
 /**
  * Unit tests for SimpleVM class
@@ -16,7 +16,7 @@ class SimpleVMTest extends TestCase
     public function testSimpleVMCanBeInstantiated(): void
     {
         $vm = new SimpleVM('test-vm', 'user1');
-        
+
         $this->assertInstanceOf(SimpleVM::class, $vm);
         $this->assertEquals('test-vm', $vm->name);
         $this->assertEquals('user1', $vm->user);
@@ -25,7 +25,7 @@ class SimpleVMTest extends TestCase
     public function testSimpleVMPropertiesCanBeSet(): void
     {
         $vm = new SimpleVM('test-vm', 'user2', 4, 4096, 40);
-        
+
         $this->assertEquals('test-vm', $vm->name);
         $this->assertEquals('user2', $vm->user);
         $this->assertEquals(4, $vm->cpu);
@@ -42,7 +42,7 @@ class SimpleVMTest extends TestCase
     public function testDefaultValuesAreSetCorrectly(): void
     {
         $vm = new SimpleVM('test-vm', 'user1');
-        
+
         $this->assertEquals(2, $vm->cpu);
         $this->assertEquals(2048, $vm->memory);
         $this->assertEquals(20, $vm->disk);
@@ -57,7 +57,7 @@ class SimpleVMTest extends TestCase
         $vm1 = new SimpleVM('test-vm1', 'user1');
         $vm2 = new SimpleVM('test-vm2', 'user2');
         $vm3 = new SimpleVM('test-vm3', 'user3');
-        
+
         $this->assertEquals(100, $vm1->vlanId);
         $this->assertEquals(101, $vm2->vlanId);
         $this->assertEquals(102, $vm3->vlanId);
@@ -66,7 +66,7 @@ class SimpleVMTest extends TestCase
     public function testVlanIdDefaultsTo100ForUnknownUser(): void
     {
         $vm = new SimpleVM('test-vm', 'unknown-user');
-        
+
         $this->assertEquals(100, $vm->vlanId);
     }
 
@@ -76,9 +76,9 @@ class SimpleVMTest extends TestCase
         $vm->status = 'running';
         $vm->ipAddress = '192.168.101.10';
         $vm->password = 'test-password';
-        
+
         $array = $vm->toArray();
-        
+
         $this->assertIsArray($array);
         $this->assertEquals('test-vm', $array['name']);
         $this->assertEquals('user2', $array['user']);
@@ -97,11 +97,11 @@ class SimpleVMTest extends TestCase
     public function testPropertiesCanBeModifiedAfterInstantiation(): void
     {
         $vm = new SimpleVM('test-vm', 'user1');
-        
+
         $vm->status = 'running';
         $vm->ipAddress = '192.168.100.10';
         $vm->password = 'generated-password';
-        
+
         $this->assertEquals('running', $vm->status);
         $this->assertEquals('192.168.100.10', $vm->ipAddress);
         $this->assertEquals('generated-password', $vm->password);
