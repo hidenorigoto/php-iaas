@@ -13,10 +13,19 @@ RUN apt-get update && apt-get install -y \
     pkg-config \
     python3 \
     python3-pip \
+    genisoimage \
+    cloud-image-utils \
+    qemu-utils \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions
 RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
+
+# Install Xdebug for code coverage
+RUN pecl install xdebug \
+    && docker-php-ext-enable xdebug \
+    && echo "xdebug.mode=coverage" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
 
 # Install libvirt-php extension (skip for now, will mock in tests)
 # RUN pecl install libvirt-php && docker-php-ext-enable libvirt

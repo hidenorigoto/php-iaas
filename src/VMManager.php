@@ -37,6 +37,8 @@ class VMManager
     private const LIBVIRT_URI = 'qemu:///system';
     private const DEFAULT_STORAGE_POOL = 'default';
     private const DEFAULT_DISK_PATH = '/var/lib/libvirt/images/';
+    private const UBUNTU_BASE_IMAGE = '/var/lib/libvirt/images/ubuntu-22.04-server-cloudimg-amd64.img';
+    private const CLOUD_INIT_PATH = '/var/lib/libvirt/images/cloud-init/';
 
     /**
      * Constructor for VMManager
@@ -451,47 +453,31 @@ class VMManager
             'pool_name' => $poolName,
         ]);
 
-        // Get storage pool
-        $pool = $this->getStoragePool($poolName);
-        if ($pool === false) {
-            return false;
-        }
+        // Use qemu-img to create disk with Ubuntu base image
+        $volumePath = $this->getVolumeTargetPath($volumeName);
 
-        // Generate volume XML configuration
-        $volumeXml = $this->generateVolumeXml($volumeName, $sizeGB);
-
-        // Check if libvirt_storagevolume_create_xml function exists
-        if (! function_exists('libvirt_storagevolume_create_xml')) {
-            $this->logger->error('libvirt_storagevolume_create_xml function not available');
-
-            return false;
-        }
-
-        $volume = libvirt_storagevolume_create_xml($pool, $volumeXml);
-
-        if ($volume === false) {
-            $error = $this->getLibvirtError() ?? 'Unknown libvirt error';
-            $this->logger->error('Failed to create disk volume', [
-                'volume_name' => $volumeName,
-                'error' => $error,
+        // Check if Ubuntu base image exists
+        if (! file_exists(self::UBUNTU_BASE_IMAGE)) {
+            $this->logger->warning('Ubuntu base image not found, creating empty disk', [
+                'base_image' => self::UBUNTU_BASE_IMAGE,
             ]);
 
-            return false;
-        }
-
-        // Get volume path
-        $volumePath = $this->getVolumePath($volume);
-
-        if ($volumePath === false) {
-            $this->logger->error('Failed to get volume path', ['volume_name' => $volumeName]);
-
-            return false;
+            // Fallback to creating empty disk
+            if (! $this->createQcow2Image($volumePath, $sizeGB)) {
+                return false;
+            }
+        } else {
+            // Create disk with Ubuntu base image as backing file
+            if (! $this->createQcow2ImageWithBacking($volumePath, $sizeGB, self::UBUNTU_BASE_IMAGE)) {
+                return false;
+            }
         }
 
         $this->logger->info('Successfully created disk volume', [
             'volume_name' => $volumeName,
             'volume_path' => $volumePath,
             'size_gb' => $sizeGB,
+            'base_image' => file_exists(self::UBUNTU_BASE_IMAGE) ? self::UBUNTU_BASE_IMAGE : 'none',
         ]);
 
         return $volumePath;
@@ -620,6 +606,52 @@ class VMManager
         $this->logger->info('Successfully created qcow2 image', [
             'image_path' => $imagePath,
             'size_gb' => $sizeGB,
+        ]);
+
+        return true;
+    }
+
+    /**
+     * Create qcow2 image with backing file
+     *
+     * @param string $imagePath Path for the new image
+     * @param int $sizeGB Size in GB
+     * @param string $backingFile Path to the backing file
+     * @return bool True on success, false on failure
+     */
+    public function createQcow2ImageWithBacking(string $imagePath, int $sizeGB, string $backingFile): bool
+    {
+        $this->logger->info('Creating qcow2 image with backing file', [
+            'image_path' => $imagePath,
+            'size_gb' => $sizeGB,
+            'backing_file' => $backingFile,
+        ]);
+
+        // Create qemu-img command with backing file
+        $command = 'qemu-img create -f qcow2 -F qcow2';
+        $command .= ' -b ' . escapeshellarg($backingFile);
+        $command .= ' ' . escapeshellarg($imagePath) . ' ' . $sizeGB . 'G';
+
+        $this->logger->debug('Executing qemu-img command', ['command' => $command]);
+
+        // Execute command
+        $output = [];
+        $returnCode = 0;
+        exec($command . ' 2>&1', $output, $returnCode);
+
+        if ($returnCode !== 0) {
+            $this->logger->error('Failed to create qcow2 image with backing', [
+                'command' => $command,
+                'return_code' => $returnCode,
+                'output' => implode("\n", $output),
+            ]);
+
+            return false;
+        }
+
+        $this->logger->info('Successfully created qcow2 image with backing', [
+            'image_path' => $imagePath,
+            'backing_file' => $backingFile,
         ]);
 
         return true;
@@ -940,12 +972,13 @@ class VMManager
      * @param string $diskPath Path to the disk volume
      * @return string Domain XML configuration
      */
-    public function buildVMConfig(SimpleVM $vm, string $diskPath): string
+    public function buildVMConfig(SimpleVM $vm, string $diskPath, string $cloudInitISOPath = ''): string
     {
         $this->logger->info('Building VM configuration XML', [
             'vm_name' => $vm->name,
             'user' => $vm->user,
             'disk_path' => $diskPath,
+            'cloud_init_iso' => $cloudInitISOPath,
         ]);
 
         // Generate unique UUID for the VM
@@ -965,48 +998,68 @@ class VMManager
 
         // Build the domain XML
         $xml = <<<XML
-            <domain type='qemu'>
-              <name>{$vm->name}</name>
-              <uuid>{$uuid}</uuid>
-              <memory unit='KiB'>{$memoryKiB}</memory>
-              <currentMemory unit='KiB'>{$memoryKiB}</currentMemory>
-              <vcpu placement='static'>{$vm->cpu}</vcpu>
-              <os>
-                <type arch='x86_64' machine='pc-i440fx-2.12'>hvm</type>
-                <boot dev='hd'/>
-              </os>
-              <features>
-                <acpi/>
-                <apic/>
-                <vmport state='off'/>
-              </features>
-              <cpu mode='host-model' check='partial'>
-                <model fallback='allow'/>
-              </cpu>
-              <clock offset='utc'>
-                <timer name='rtc' tickpolicy='catchup'/>
-                <timer name='pit' tickpolicy='delay'/>
-                <timer name='hpet' present='no'/>
-              </clock>
-              <on_poweroff>destroy</on_poweroff>
-              <on_reboot>restart</on_reboot>
-              <on_crash>destroy</on_crash>
-              <pm>
-                <suspend-to-mem enabled='no'/>
-                <suspend-to-disk enabled='no'/>
-              </pm>
-              <devices>
-                <emulator>/usr/bin/qemu-system-x86_64</emulator>
-                <disk type='file' device='disk'>
-                  <driver name='qemu' type='qcow2'/>
-                  <source file='{$diskPath}'/>
-                  <target dev='vda' bus='virtio'/>
-                  <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
-                </disk>
+                        <domain type='qemu'>
+                          <name>{$vm->name}</name>
+                          <uuid>{$uuid}</uuid>
+                          <memory unit='KiB'>{$memoryKiB}</memory>
+                          <currentMemory unit='KiB'>{$memoryKiB}</currentMemory>
+                          <vcpu placement='static'>{$vm->cpu}</vcpu>
+                          <os>
+                            <type arch='x86_64' machine='pc-i440fx-2.12'>hvm</type>
+                            <boot dev='hd'/>
+                          </os>
+                          <features>
+                            <acpi/>
+                            <apic/>
+                            <vmport state='off'/>
+                          </features>
+                          <cpu mode='host-model' check='partial'>
+                            <model fallback='allow'/>
+                          </cpu>
+                          <clock offset='utc'>
+                            <timer name='rtc' tickpolicy='catchup'/>
+                            <timer name='pit' tickpolicy='delay'/>
+                            <timer name='hpet' present='no'/>
+                          </clock>
+                          <on_poweroff>destroy</on_poweroff>
+                          <on_reboot>restart</on_reboot>
+                          <on_crash>destroy</on_crash>
+                          <pm>
+                            <suspend-to-mem enabled='no'/>
+                            <suspend-to-disk enabled='no'/>
+                          </pm>
+                          <devices>
+                            <emulator>/usr/bin/qemu-system-x86_64</emulator>
+                            <disk type='file' device='disk'>
+                              <driver name='qemu' type='qcow2'/>
+                              <source file='{$diskPath}'/>
+                              <target dev='vda' bus='virtio'/>
+                              <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
+                            </disk>
+            XML;
+
+        // Add cloud-init CD-ROM if path is provided
+        if (! empty($cloudInitISOPath)) {
+            $xml .= <<<XML
+
+                                <disk type='file' device='cdrom'>
+                                  <driver name='qemu' type='raw'/>
+                                  <source file='{$cloudInitISOPath}'/>
+                                  <target dev='hdc' bus='ide'/>
+                                  <readonly/>
+                                  <address type='drive' controller='0' bus='1' target='0' unit='0'/>
+                                </disk>
+                XML;
+        }
+
+        $xml .= <<<XML
                 <controller type='usb' index='0' model='ich9-ehci1'>
                   <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x7'/>
                 </controller>
                 <controller type='pci' index='0' model='pci-root'/>
+                <controller type='ide' index='0'>
+                  <address type='pci' domain='0x0000' bus='0x00' slot='0x01' function='0x1'/>
+                </controller>
                 <interface type='network'>
                   <mac address='{$macAddress}'/>
                   <source network='{$networkName}'/>
@@ -1046,6 +1099,54 @@ class VMManager
         ]);
 
         return trim($xml);
+    }
+
+    /**
+     * Create cloud-init ISO for VM
+     *
+     * @param SimpleVM $vm VM instance
+     * @return string|false Path to cloud-init ISO on success, false on failure
+     */
+    private function createCloudInitISO(SimpleVM $vm)
+    {
+        $this->logger->info('Creating cloud-init ISO', [
+            'vm_name' => $vm->name,
+        ]);
+
+        // Ensure cloud-init directory exists
+        if (! is_dir(self::CLOUD_INIT_PATH)) {
+            if (! mkdir(self::CLOUD_INIT_PATH, 0o755, true)) {
+                $this->logger->error('Failed to create cloud-init directory', [
+                    'path' => self::CLOUD_INIT_PATH,
+                ]);
+
+                return false;
+            }
+        }
+
+        // Generate password for VM
+        $password = CloudInit::generatePassword();
+        $vm->setSSHInfo('', $password);
+
+        // Generate cloud-init configurations
+        $userData = CloudInit::generateUserData($vm->name, $vm->username, $password);
+        $metaData = CloudInit::generateMetaData($vm->name, $vm->name);
+
+        // Create cloud-init ISO
+        $isoPath = self::CLOUD_INIT_PATH . $vm->name . '-cloud-init.iso';
+        if (! CloudInit::createCloudInitISO($vm->name, $userData, $metaData, $isoPath)) {
+            $this->logger->error('Failed to create cloud-init ISO file', [
+                'iso_path' => $isoPath,
+            ]);
+
+            return false;
+        }
+
+        $this->logger->info('Successfully created cloud-init ISO', [
+            'iso_path' => $isoPath,
+        ]);
+
+        return $isoPath;
     }
 
     /**
@@ -1168,8 +1269,18 @@ class VMManager
             return false;
         }
 
+        // Create cloud-init ISO
+        $cloudInitISOPath = $this->createCloudInitISO($vm);
+        if ($cloudInitISOPath === false) {
+            $this->logger->error('Failed to create cloud-init ISO', [
+                'vm_name' => $vm->name,
+            ]);
+
+            return false;
+        }
+
         // Generate VM configuration XML
-        $vmXml = $this->buildVMConfig($vm, $diskPath);
+        $vmXml = $this->buildVMConfig($vm, $diskPath, $cloudInitISOPath);
 
         // Define the domain
         if (! function_exists('libvirt_domain_define_xml')) {
