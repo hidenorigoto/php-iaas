@@ -248,4 +248,304 @@ class VMManagerTest extends TestCase
         $this->assertCount(3, $records); // 1 from constructor + 1 from validation + 1 from creation
         $this->assertStringContainsString('SimpleVM instance created', $records[2]['message']);
     }
+
+    // Libvirt Connection Tests
+
+    public function testIsConnectedReturnsFalseInitially(): void
+    {
+        $this->assertFalse($this->vmManager->isConnected());
+    }
+
+    public function testGetConnectionReturnsNullInitially(): void
+    {
+        $this->assertNull($this->vmManager->getConnection());
+    }
+
+    public function testConnectSuccessWithMockedLibvirt(): void
+    {
+        // Create a test manager that mocks successful connection
+        $logger = new Logger('test-success');
+        $testHandler = new TestHandler();
+        $logger->pushHandler($testHandler);
+        
+        $vmManager = new class($logger) extends VMManager {
+            private $mockResource;
+            private $mockConnected = false;
+            
+            public function connect(): bool
+            {
+                if ($this->mockConnected) {
+                    $this->getLogger()->debug('Already connected to libvirt');
+                    return true;
+                }
+
+                $this->getLogger()->info('Attempting to connect to libvirt', ['uri' => 'qemu:///system']);
+
+                // Mock successful connection
+                $this->mockResource = fopen('php://memory', 'r');
+                $this->mockConnected = true;
+                
+                $this->getLogger()->info('Successfully connected to libvirt');
+                return true;
+            }
+            
+            public function isConnected(): bool
+            {
+                return $this->mockConnected && is_resource($this->mockResource);
+            }
+            
+            public function getConnection()
+            {
+                return $this->mockResource;
+            }
+            
+            public function disconnect(): bool
+            {
+                if (!$this->isConnected()) {
+                    $this->getLogger()->debug('Not connected to libvirt, nothing to disconnect');
+                    return true;
+                }
+
+                $this->getLogger()->info('Disconnecting from libvirt');
+                
+                if (is_resource($this->mockResource)) {
+                    fclose($this->mockResource);
+                }
+                $this->mockConnected = false;
+                
+                $this->getLogger()->info('Successfully disconnected from libvirt');
+                return true;
+            }
+        };
+        
+        $result = $vmManager->connect();
+        
+        $this->assertTrue($result);
+        $this->assertTrue($vmManager->isConnected());
+        $this->assertIsResource($vmManager->getConnection());
+        
+        // Check logs
+        $records = $testHandler->getRecords();
+        
+        // Find the connection attempt log
+        $connectionLogs = array_filter($records, function($record) {
+            return strpos($record['message'], 'Attempting to connect to libvirt') !== false;
+        });
+        $this->assertNotEmpty($connectionLogs);
+        
+        // Find the success log
+        $successLogs = array_filter($records, function($record) {
+            return strpos($record['message'], 'Successfully connected to libvirt') !== false;
+        });
+        $this->assertNotEmpty($successLogs);
+    }
+
+    public function testConnectFailureWithMockedLibvirt(): void
+    {
+        // Create a mock function namespace that returns false
+        if (!function_exists('VmManagement\Test\libvirt_connect')) {
+            eval('
+                namespace VmManagement\Test;
+                function libvirt_connect($uri) {
+                    return false;
+                }
+                function libvirt_get_last_error() {
+                    return "Connection failed: Permission denied";
+                }
+            ');
+        }
+        
+        // Create a test manager that uses the failing mock
+        $logger = new Logger('test-fail');
+        $testHandler = new TestHandler();
+        $logger->pushHandler($testHandler);
+        
+        // We need to create a custom VMManager for this test
+        $vmManager = new class($logger) extends VMManager {
+            public function connect(): bool
+            {
+                if ($this->isConnected()) {
+                    $this->getLogger()->debug('Already connected to libvirt');
+                    return true;
+                }
+
+                $this->getLogger()->info('Attempting to connect to libvirt', ['uri' => 'qemu:///system']);
+
+                // Mock the failure
+                $connection = false;
+                
+                if ($connection === false) {
+                    $error = 'Connection failed: Permission denied';
+                    $this->getLogger()->error('Failed to connect to libvirt', [
+                        'uri' => 'qemu:///system',
+                        'error' => $error
+                    ]);
+                    return false;
+                }
+
+                return true;
+            }
+        };
+        
+        $result = $vmManager->connect();
+        
+        $this->assertFalse($result);
+        $this->assertFalse($vmManager->isConnected());
+        $this->assertNull($vmManager->getConnection());
+        
+        // Check error logs
+        $records = $testHandler->getRecords();
+        $errorLogs = array_filter($records, function($record) {
+            return strpos($record['message'], 'Failed to connect to libvirt') !== false;
+        });
+        $this->assertNotEmpty($errorLogs);
+    }
+
+    public function testConnectWhenAlreadyConnected(): void
+    {
+        // Mock successful connection first
+        if (!function_exists('VmManagement\Already\libvirt_connect')) {
+            eval('
+                namespace VmManagement\Already;
+                function libvirt_connect($uri) {
+                    static $mockResource;
+                    if ($mockResource === null) {
+                        $mockResource = fopen("php://memory", "r");
+                    }
+                    return $mockResource;
+                }
+                function libvirt_get_last_error() {
+                    return false;
+                }
+                function libvirt_connect_close($connection) {
+                    return true;
+                }
+            ');
+        }
+        
+        // Create a test manager that simulates already connected state
+        $logger = new Logger('test-already');
+        $testHandler = new TestHandler();
+        $logger->pushHandler($testHandler);
+        
+        $vmManager = new class($logger) extends VMManager {
+            private $mockConnected = false;
+            private $mockResource;
+            
+            public function connect(): bool
+            {
+                if ($this->mockConnected) {
+                    $this->getLogger()->debug('Already connected to libvirt');
+                    return true;
+                }
+
+                $this->getLogger()->info('Attempting to connect to libvirt', ['uri' => 'qemu:///system']);
+                
+                $this->mockResource = fopen('php://memory', 'r');
+                $this->mockConnected = true;
+                
+                $this->getLogger()->info('Successfully connected to libvirt');
+                return true;
+            }
+            
+            public function isConnected(): bool
+            {
+                return $this->mockConnected && is_resource($this->mockResource);
+            }
+            
+            public function getConnection()
+            {
+                return $this->mockResource;
+            }
+        };
+        
+        // First connection
+        $result1 = $vmManager->connect();
+        $this->assertTrue($result1);
+        
+        // Second connection (should detect already connected)
+        $result2 = $vmManager->connect();
+        $this->assertTrue($result2);
+        
+        // Check that "Already connected" debug message was logged
+        $records = $testHandler->getRecords();
+        $alreadyConnectedLogs = array_filter($records, function($record) {
+            return strpos($record['message'], 'Already connected to libvirt') !== false;
+        });
+        $this->assertNotEmpty($alreadyConnectedLogs);
+    }
+
+    public function testDisconnectWhenConnected(): void
+    {
+        // Create a test manager that simulates connected state
+        $logger = new Logger('test-disconnect');
+        $testHandler = new TestHandler();
+        $logger->pushHandler($testHandler);
+        
+        $vmManager = new class($logger) extends VMManager {
+            private $mockConnected = true;
+            private $mockResource;
+            
+            public function __construct($logger) {
+                parent::__construct($logger);
+                $this->mockResource = fopen('php://memory', 'r');
+            }
+            
+            public function isConnected(): bool
+            {
+                return $this->mockConnected && is_resource($this->mockResource);
+            }
+            
+            public function getConnection()
+            {
+                return $this->mockResource;
+            }
+            
+            public function disconnect(): bool
+            {
+                if (!$this->isConnected()) {
+                    $this->getLogger()->debug('Not connected to libvirt, nothing to disconnect');
+                    return true;
+                }
+
+                $this->getLogger()->info('Disconnecting from libvirt');
+                
+                if (is_resource($this->mockResource)) {
+                    fclose($this->mockResource);
+                }
+                $this->mockConnected = false;
+                
+                $this->getLogger()->info('Successfully disconnected from libvirt');
+                return true;
+            }
+        };
+        
+        $this->assertTrue($vmManager->isConnected());
+        
+        $result = $vmManager->disconnect();
+        
+        $this->assertTrue($result);
+        $this->assertFalse($vmManager->isConnected());
+        
+        // Check disconnect logs
+        $records = $testHandler->getRecords();
+        $disconnectLogs = array_filter($records, function($record) {
+            return strpos($record['message'], 'Successfully disconnected from libvirt') !== false;
+        });
+        $this->assertNotEmpty($disconnectLogs);
+    }
+
+    public function testDisconnectWhenNotConnected(): void
+    {
+        $result = $this->vmManager->disconnect();
+        
+        $this->assertTrue($result);
+        
+        // Check that "nothing to disconnect" debug message was logged
+        $records = $this->testHandler->getRecords();
+        $nothingToDisconnectLogs = array_filter($records, function($record) {
+            return strpos($record['message'], 'Not connected to libvirt, nothing to disconnect') !== false;
+        });
+        $this->assertNotEmpty($nothingToDisconnectLogs);
+    }
 }

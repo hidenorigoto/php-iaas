@@ -16,6 +16,9 @@ class VMManager
 {
     private Logger $logger;
     
+    /** @var resource|null */
+    private $libvirtConnection = null;
+    
     /** @var array<string, int> */
     private const USER_VLAN_MAP = [
         'user1' => 100,
@@ -26,6 +29,7 @@ class VMManager
     private const DEFAULT_CPU = 2;
     private const DEFAULT_MEMORY = 2048;
     private const DEFAULT_DISK = 20;
+    private const LIBVIRT_URI = 'qemu:///system';
 
     /**
      * Constructor for VMManager
@@ -188,5 +192,117 @@ class VMManager
     public function logDebug(string $message, array $context = []): void
     {
         $this->logger->debug($message, $context);
+    }
+
+    /**
+     * Connect to libvirt daemon
+     *
+     * @return bool True if connection successful, false otherwise
+     */
+    public function connect(): bool
+    {
+        if ($this->isConnected()) {
+            $this->logger->debug('Already connected to libvirt');
+            return true;
+        }
+
+        $this->logger->info('Attempting to connect to libvirt', ['uri' => self::LIBVIRT_URI]);
+
+        // Check if libvirt_connect function exists (for testing compatibility)
+        if (!function_exists('libvirt_connect')) {
+            $this->logger->error('libvirt_connect function not available');
+            return false;
+        }
+
+        $connection = libvirt_connect(self::LIBVIRT_URI);
+        
+        if ($connection === false) {
+            $error = $this->getLastLibvirtError();
+            $this->logger->error('Failed to connect to libvirt', [
+                'uri' => self::LIBVIRT_URI,
+                'error' => $error
+            ]);
+            return false;
+        }
+
+        $this->libvirtConnection = $connection;
+        $this->logger->info('Successfully connected to libvirt');
+        
+        return true;
+    }
+
+    /**
+     * Check if connected to libvirt daemon
+     *
+     * @return bool True if connected, false otherwise
+     */
+    public function isConnected(): bool
+    {
+        return $this->libvirtConnection !== null && is_resource($this->libvirtConnection);
+    }
+
+    /**
+     * Disconnect from libvirt daemon
+     *
+     * @return bool True if disconnection successful, false otherwise
+     */
+    public function disconnect(): bool
+    {
+        if (!$this->isConnected()) {
+            $this->logger->debug('Not connected to libvirt, nothing to disconnect');
+            return true;
+        }
+
+        $this->logger->info('Disconnecting from libvirt');
+        
+        // Check if libvirt_connect_close function exists (for testing compatibility)
+        if (function_exists('libvirt_connect_close')) {
+            $result = libvirt_connect_close($this->libvirtConnection);
+            
+            if ($result === false) {
+                $error = $this->getLastLibvirtError();
+                $this->logger->error('Failed to disconnect from libvirt', ['error' => $error]);
+                $this->libvirtConnection = null;
+                return false;
+            }
+        }
+        
+        $this->libvirtConnection = null;
+        $this->logger->info('Successfully disconnected from libvirt');
+        return true;
+    }
+
+    /**
+     * Get the last libvirt error
+     *
+     * @return string Error message or empty string if no error
+     */
+    private function getLastLibvirtError(): string
+    {
+        if (function_exists('libvirt_get_last_error')) {
+            $error = libvirt_get_last_error();
+            return $error !== false ? $error : 'Unknown libvirt error';
+        }
+        return 'libvirt_get_last_error function not available';
+    }
+
+    /**
+     * Get the current libvirt connection resource
+     *
+     * @return resource|null The libvirt connection resource or null if not connected
+     */
+    public function getConnection()
+    {
+        return $this->libvirtConnection;
+    }
+
+    /**
+     * Destructor - ensure libvirt connection is closed
+     */
+    public function __destruct()
+    {
+        if ($this->isConnected()) {
+            $this->disconnect();
+        }
     }
 }
