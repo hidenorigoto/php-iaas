@@ -1504,4 +1504,326 @@ class VMManagerTest extends TestCase
         });
         $this->assertNotEmpty($successLogs);
     }
+
+    public function testBuildVMConfigGeneratesValidXML(): void
+    {
+        $vm = new SimpleVM('test-vm', 'user1', 2, 2048, 20);
+        $diskPath = '/var/lib/libvirt/images/test-vm.qcow2';
+
+        $xml = $this->vmManager->buildVMConfig($vm, $diskPath);
+
+        // Verify it's valid XML
+        $this->assertNotEmpty($xml);
+        $doc = new \DOMDocument();
+        $this->assertTrue($doc->loadXML($xml), 'Generated XML should be valid');
+
+        // Verify root element
+        $root = $doc->documentElement;
+        $this->assertNotNull($root);
+        $this->assertEquals('domain', $root->nodeName);
+        $this->assertEquals('qemu', $root->getAttribute('type'));
+
+        // Verify VM name
+        $nameNodes = $doc->getElementsByTagName('name');
+        $this->assertEquals(1, $nameNodes->length);
+        $nameNode = $nameNodes->item(0);
+        $this->assertNotNull($nameNode);
+        $this->assertEquals('test-vm', $nameNode->nodeValue);
+
+        // Verify UUID exists and is valid format
+        $uuidNodes = $doc->getElementsByTagName('uuid');
+        $this->assertEquals(1, $uuidNodes->length);
+        $uuidNode = $uuidNodes->item(0);
+        $this->assertNotNull($uuidNode);
+        $uuid = $uuidNode->nodeValue;
+        $this->assertNotNull($uuid);
+        $this->assertMatchesRegularExpression(
+            '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/',
+            $uuid,
+            'UUID should be in proper format'
+        );
+
+        // Check that log was called
+        $this->assertTrue($this->testHandler->hasInfoThatContains('Building VM configuration XML'));
+    }
+
+    public function testBuildVMConfigAppliesMemoryConversion(): void
+    {
+        $vm = new SimpleVM('test-vm', 'user1', 2, 4096, 20);
+        $diskPath = '/var/lib/libvirt/images/test-vm.qcow2';
+
+        $xml = $this->vmManager->buildVMConfig($vm, $diskPath);
+
+        $doc = new \DOMDocument();
+        $doc->loadXML($xml);
+
+        // Memory should be converted from MB to KiB
+        $memoryNodes = $doc->getElementsByTagName('memory');
+        $this->assertEquals(1, $memoryNodes->length);
+        $memoryNode = $memoryNodes->item(0);
+        $this->assertNotNull($memoryNode);
+        $this->assertEquals('4194304', $memoryNode->nodeValue); // 4096 * 1024
+        $this->assertEquals('KiB', $memoryNode->getAttribute('unit'));
+
+        $currentMemoryNodes = $doc->getElementsByTagName('currentMemory');
+        $this->assertEquals(1, $currentMemoryNodes->length);
+        $currentMemoryNode = $currentMemoryNodes->item(0);
+        $this->assertNotNull($currentMemoryNode);
+        $this->assertEquals('4194304', $currentMemoryNode->nodeValue);
+        $this->assertEquals('KiB', $currentMemoryNode->getAttribute('unit'));
+    }
+
+    public function testBuildVMConfigSetsCPUCount(): void
+    {
+        $vm = new SimpleVM('test-vm', 'user2', 4, 2048, 20);
+        $diskPath = '/var/lib/libvirt/images/test-vm.qcow2';
+
+        $xml = $this->vmManager->buildVMConfig($vm, $diskPath);
+
+        $doc = new \DOMDocument();
+        $doc->loadXML($xml);
+
+        $vcpuNodes = $doc->getElementsByTagName('vcpu');
+        $this->assertEquals(1, $vcpuNodes->length);
+        $vcpuNode = $vcpuNodes->item(0);
+        $this->assertNotNull($vcpuNode);
+        $this->assertEquals('4', $vcpuNode->nodeValue);
+        $this->assertEquals('static', $vcpuNode->getAttribute('placement'));
+    }
+
+    public function testBuildVMConfigSetsDiskPath(): void
+    {
+        $vm = new SimpleVM('test-vm', 'user3', 2, 2048, 30);
+        $diskPath = '/custom/path/test-vm.qcow2';
+
+        $xml = $this->vmManager->buildVMConfig($vm, $diskPath);
+
+        $doc = new \DOMDocument();
+        $doc->loadXML($xml);
+
+        // Find disk source element
+        $xpath = new \DOMXPath($doc);
+        $diskSources = $xpath->query("//disk[@type='file']/source");
+        $this->assertNotFalse($diskSources);
+        $this->assertEquals(1, $diskSources->length);
+        $diskSource = $diskSources->item(0);
+        $this->assertNotNull($diskSource);
+        $this->assertInstanceOf(\DOMElement::class, $diskSource);
+        $this->assertEquals($diskPath, $diskSource->getAttribute('file'));
+
+        // Verify disk driver
+        $diskDrivers = $xpath->query("//disk[@type='file']/driver");
+        $this->assertNotFalse($diskDrivers);
+        $this->assertEquals(1, $diskDrivers->length);
+        $diskDriver = $diskDrivers->item(0);
+        $this->assertNotNull($diskDriver);
+        $this->assertInstanceOf(\DOMElement::class, $diskDriver);
+        $this->assertEquals('qemu', $diskDriver->getAttribute('name'));
+        $this->assertEquals('qcow2', $diskDriver->getAttribute('type'));
+    }
+
+    public function testBuildVMConfigAssignsCorrectNetworkForEachUser(): void
+    {
+        $users = [
+            'user1' => 'vm-network-100',
+            'user2' => 'vm-network-101',
+            'user3' => 'vm-network-102',
+        ];
+
+        foreach ($users as $user => $expectedNetwork) {
+            $vm = new SimpleVM("test-vm-{$user}", $user, 2, 2048, 20);
+            $diskPath = "/var/lib/libvirt/images/test-vm-{$user}.qcow2";
+
+            $xml = $this->vmManager->buildVMConfig($vm, $diskPath);
+
+            $doc = new \DOMDocument();
+            $doc->loadXML($xml);
+
+            // Find network interface source
+            $xpath = new \DOMXPath($doc);
+            $networkSources = $xpath->query("//interface[@type='network']/source");
+            $this->assertNotFalse($networkSources);
+            $this->assertEquals(1, $networkSources->length);
+            $networkSource = $networkSources->item(0);
+            $this->assertNotNull($networkSource);
+            $this->assertInstanceOf(\DOMElement::class, $networkSource);
+            $this->assertEquals(
+                $expectedNetwork,
+                $networkSource->getAttribute('network'),
+                "User {$user} should be assigned to network {$expectedNetwork}"
+            );
+        }
+    }
+
+    public function testBuildVMConfigGeneratesValidMacAddress(): void
+    {
+        $vm = new SimpleVM('test-vm', 'user1', 2, 2048, 20);
+        $diskPath = '/var/lib/libvirt/images/test-vm.qcow2';
+
+        $xml = $this->vmManager->buildVMConfig($vm, $diskPath);
+
+        $doc = new \DOMDocument();
+        $doc->loadXML($xml);
+
+        $xpath = new \DOMXPath($doc);
+        $macElements = $xpath->query("//interface[@type='network']/mac");
+        $this->assertNotFalse($macElements);
+        $this->assertEquals(1, $macElements->length);
+        $macElement = $macElements->item(0);
+        $this->assertNotNull($macElement);
+        $this->assertInstanceOf(\DOMElement::class, $macElement);
+        $macAddress = $macElement->getAttribute('address');
+        $this->assertMatchesRegularExpression(
+            '/^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i',
+            $macAddress,
+            'MAC address should be in proper format'
+        );
+
+        // Verify it's a locally administered MAC (second least significant bit of first octet is 1)
+        $firstOctet = hexdec(substr($macAddress, 0, 2));
+        $this->assertEquals(
+            1,
+            ($firstOctet >> 1) & 1,
+            'MAC address should be locally administered'
+        );
+    }
+
+    public function testBuildVMConfigThrowsExceptionForInvalidUser(): void
+    {
+        $vm = new SimpleVM('test-vm', 'invalid-user', 2, 2048, 20);
+        $diskPath = '/var/lib/libvirt/images/test-vm.qcow2';
+
+        // Note: SimpleVM will default to VLAN 100 for invalid users,
+        // but buildVMConfig checks the user independently
+        $vm->user = 'invalid-user'; // Force invalid user
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Invalid user for network configuration: invalid-user');
+
+        $this->vmManager->buildVMConfig($vm, $diskPath);
+    }
+
+    public function testBuildVMConfigIncludesDefaultSettings(): void
+    {
+        $vm = new SimpleVM('test-vm', 'user1'); // Using defaults: 2 CPU, 2048 MB, 20 GB
+        $diskPath = '/var/lib/libvirt/images/test-vm.qcow2';
+
+        $xml = $this->vmManager->buildVMConfig($vm, $diskPath);
+
+        $doc = new \DOMDocument();
+        $doc->loadXML($xml);
+
+        // Check default CPU (2)
+        $vcpuNodes = $doc->getElementsByTagName('vcpu');
+        $vcpuNode = $vcpuNodes->item(0);
+        $this->assertNotNull($vcpuNode);
+        $this->assertEquals('2', $vcpuNode->nodeValue);
+
+        // Check default memory (2048 MB = 2097152 KiB)
+        $memoryNodes = $doc->getElementsByTagName('memory');
+        $memoryNode = $memoryNodes->item(0);
+        $this->assertNotNull($memoryNode);
+        $this->assertEquals('2097152', $memoryNode->nodeValue);
+
+        // Note: Disk size is not directly visible in the XML, it's part of volume creation
+    }
+
+    public function testBuildVMConfigGeneratesUniqueUUIDs(): void
+    {
+        $vm1 = new SimpleVM('test-vm-1', 'user1', 2, 2048, 20);
+        $vm2 = new SimpleVM('test-vm-2', 'user1', 2, 2048, 20);
+        $diskPath = '/var/lib/libvirt/images/test-vm.qcow2';
+
+        $xml1 = $this->vmManager->buildVMConfig($vm1, $diskPath);
+        $xml2 = $this->vmManager->buildVMConfig($vm2, $diskPath);
+
+        $doc1 = new \DOMDocument();
+        $doc1->loadXML($xml1);
+        $doc2 = new \DOMDocument();
+        $doc2->loadXML($xml2);
+
+        $uuidNode1 = $doc1->getElementsByTagName('uuid')->item(0);
+        $uuidNode2 = $doc2->getElementsByTagName('uuid')->item(0);
+        $this->assertNotNull($uuidNode1);
+        $this->assertNotNull($uuidNode2);
+        $uuid1 = $uuidNode1->nodeValue;
+        $uuid2 = $uuidNode2->nodeValue;
+
+        $this->assertNotEquals($uuid1, $uuid2, 'Each VM should have a unique UUID');
+    }
+
+    public function testBuildVMConfigGeneratesUniqueMacAddresses(): void
+    {
+        $vm1 = new SimpleVM('test-vm-1', 'user1', 2, 2048, 20);
+        $vm2 = new SimpleVM('test-vm-2', 'user1', 2, 2048, 20);
+        $diskPath = '/var/lib/libvirt/images/test-vm.qcow2';
+
+        $xml1 = $this->vmManager->buildVMConfig($vm1, $diskPath);
+        $xml2 = $this->vmManager->buildVMConfig($vm2, $diskPath);
+
+        $doc1 = new \DOMDocument();
+        $doc1->loadXML($xml1);
+        $doc2 = new \DOMDocument();
+        $doc2->loadXML($xml2);
+
+        $xpath1 = new \DOMXPath($doc1);
+        $xpath2 = new \DOMXPath($doc2);
+
+        $macQuery1 = $xpath1->query("//interface[@type='network']/mac");
+        $macQuery2 = $xpath2->query("//interface[@type='network']/mac");
+        $this->assertNotFalse($macQuery1);
+        $this->assertNotFalse($macQuery2);
+        $macNode1 = $macQuery1->item(0);
+        $macNode2 = $macQuery2->item(0);
+        $this->assertNotNull($macNode1);
+        $this->assertNotNull($macNode2);
+        $this->assertInstanceOf(\DOMElement::class, $macNode1);
+        $this->assertInstanceOf(\DOMElement::class, $macNode2);
+        $mac1 = $macNode1->getAttribute('address');
+        $mac2 = $macNode2->getAttribute('address');
+
+        $this->assertNotEquals($mac1, $mac2, 'Each VM should have a unique MAC address');
+    }
+
+    public function testBuildVMConfigIncludesRequiredDevices(): void
+    {
+        $vm = new SimpleVM('test-vm', 'user1', 2, 2048, 20);
+        $diskPath = '/var/lib/libvirt/images/test-vm.qcow2';
+
+        $xml = $this->vmManager->buildVMConfig($vm, $diskPath);
+
+        $doc = new \DOMDocument();
+        $doc->loadXML($xml);
+
+        // Check for essential devices
+        $xpath = new \DOMXPath($doc);
+
+        // Console device
+        $consoles = $xpath->query("//console[@type='pty']");
+        $this->assertNotFalse($consoles);
+        $this->assertEquals(1, $consoles->length, 'Should have a console device');
+
+        // Serial device
+        $serials = $xpath->query("//serial[@type='pty']");
+        $this->assertNotFalse($serials);
+        $this->assertEquals(1, $serials->length, 'Should have a serial device');
+
+        // VNC graphics
+        $graphics = $xpath->query("//graphics[@type='vnc']");
+        $this->assertNotFalse($graphics);
+        $this->assertEquals(1, $graphics->length, 'Should have VNC graphics');
+        $graphicsNode = $graphics->item(0);
+        $this->assertNotNull($graphicsNode);
+        $this->assertInstanceOf(\DOMElement::class, $graphicsNode);
+        $this->assertEquals('127.0.0.1', $graphicsNode->getAttribute('listen'));
+
+        // Input devices
+        $mouseinputs = $xpath->query("//input[@type='mouse']");
+        $this->assertNotFalse($mouseinputs);
+        $this->assertGreaterThanOrEqual(1, $mouseinputs->length, 'Should have mouse input');
+
+        $kbdinputs = $xpath->query("//input[@type='keyboard']");
+        $this->assertNotFalse($kbdinputs);
+        $this->assertGreaterThanOrEqual(1, $kbdinputs->length, 'Should have keyboard input');
+    }
 }
