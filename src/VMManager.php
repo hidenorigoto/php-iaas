@@ -7,7 +7,10 @@ namespace VmManagement;
 use Monolog\Handler\RotatingFileHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Logger;
+use VmManagement\Exceptions\LibvirtConnectionException;
+use VmManagement\Exceptions\NetworkException;
 use VmManagement\Exceptions\ValidationException;
+use VmManagement\Exceptions\VMCreationException;
 
 // Define libvirt constants if not already defined
 if (! defined('VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE')) {
@@ -1119,9 +1122,12 @@ class VMManager
      * Create and start a virtual machine
      *
      * @param SimpleVM $vm VM instance to create and start
-     * @return SimpleVM|false Updated VM instance on success, false on failure
+     * @return SimpleVM Updated VM instance on success
+     * @throws ValidationException When VM parameters are invalid
+     * @throws LibvirtConnectionException When not connected to libvirt
+     * @throws VMCreationException When VM creation fails
      */
-    public function createAndStartVM(SimpleVM $vm)
+    public function createAndStartVM(SimpleVM $vm): SimpleVM
     {
         $this->logger->info('Creating and starting VM', [
             'vm_name' => $vm->name,
@@ -1129,23 +1135,13 @@ class VMManager
         ]);
 
         // Validate parameters
-        try {
-            $this->validateVMParams($vm->toArray());
-        } catch (ValidationException $e) {
-            $this->logger->error('Invalid VM parameters', [
-                'error' => $e->getMessage(),
-                'vm_name' => $vm->name,
-                'context' => $e->getContext(),
-            ]);
-
-            return false;
-        }
+        $this->validateVMParams($vm->toArray());
 
         // Ensure connected to libvirt
         if (! $this->isConnected() && ! $this->connect()) {
             $this->logger->error('Failed to connect to libvirt');
 
-            return false;
+            throw new LibvirtConnectionException('Failed to connect to libvirt');
         }
 
         // Ensure user network exists
@@ -1154,7 +1150,7 @@ class VMManager
                 'user' => $vm->user,
             ]);
 
-            return false;
+            throw new NetworkException('Failed to ensure user network for user: ' . $vm->user, ['user' => $vm->user]);
         }
 
         // Create disk volume
@@ -1165,7 +1161,7 @@ class VMManager
                 'disk_size' => $vm->disk,
             ]);
 
-            return false;
+            throw new VMCreationException('Failed to create disk volume', ['vm_name' => $vm->name, 'disk_size' => $vm->disk]);
         }
 
         // Generate VM configuration XML
@@ -1175,13 +1171,13 @@ class VMManager
         if (! function_exists('libvirt_domain_define_xml')) {
             $this->logger->error('libvirt_domain_define_xml function not available');
 
-            return false;
+            throw new VMCreationException('libvirt_domain_define_xml function not available');
         }
 
         if ($this->libvirtConnection === null) {
             $this->logger->error('libvirt connection is null');
 
-            return false;
+            throw new LibvirtConnectionException('libvirt connection is null');
         }
 
         $domain = libvirt_domain_define_xml($this->libvirtConnection, $vmXml);
@@ -1192,7 +1188,7 @@ class VMManager
                 'error' => $error,
             ]);
 
-            return false;
+            throw new VMCreationException('Failed to define VM domain: ' . $error, ['vm_name' => $vm->name]);
         }
 
         $this->logger->info('VM domain defined successfully', ['vm_name' => $vm->name]);
@@ -1201,7 +1197,7 @@ class VMManager
         if (! function_exists('libvirt_domain_create')) {
             $this->logger->error('libvirt_domain_create function not available');
 
-            return false;
+            throw new VMCreationException('libvirt_domain_create function not available');
         }
 
         $result = libvirt_domain_create($domain);
@@ -1212,7 +1208,7 @@ class VMManager
                 'error' => $error,
             ]);
 
-            return false;
+            throw new VMCreationException('Failed to start VM: ' . $error, ['vm_name' => $vm->name]);
         }
 
         $this->logger->info('VM started successfully', ['vm_name' => $vm->name]);

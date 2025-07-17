@@ -12,6 +12,12 @@ use VmManagement\Exceptions\NetworkException;
  */
 class NetworkExceptionTest extends TestCase
 {
+    /**
+
+     * @covers \VmManagement\Exceptions\NetworkException
+
+     */
+
     public function testNetworkDefineFailed(): void
     {
         $exception = NetworkException::networkDefineFailed('vm-network-100');
@@ -21,6 +27,15 @@ class NetworkExceptionTest extends TestCase
         $this->assertEquals(NetworkException::ERROR_NETWORK_DEFINE_FAILED, $exception->getCode());
         $this->assertEquals(['network_name' => 'vm-network-100'], $exception->getContext());
     }
+
+    /**
+
+
+     * @covers \VmManagement\Exceptions\NetworkException
+
+
+     */
+
 
     public function testNetworkDefineFailedWithLibvirtError(): void
     {
@@ -32,6 +47,15 @@ class NetworkExceptionTest extends TestCase
         $this->assertEquals(['network_name' => 'vm-network-100', 'libvirt_error' => 'Invalid XML'], $exception->getContext());
     }
 
+    /**
+
+
+     * @covers \VmManagement\Exceptions\NetworkException
+
+
+     */
+
+
     public function testNetworkStartFailed(): void
     {
         $exception = NetworkException::networkStartFailed('vm-network-100');
@@ -41,6 +65,15 @@ class NetworkExceptionTest extends TestCase
         $this->assertEquals(NetworkException::ERROR_NETWORK_START_FAILED, $exception->getCode());
         $this->assertEquals(['network_name' => 'vm-network-100'], $exception->getContext());
     }
+
+    /**
+
+
+     * @covers \VmManagement\Exceptions\NetworkException
+
+
+     */
+
 
     public function testNetworkNotFound(): void
     {
@@ -52,6 +85,15 @@ class NetworkExceptionTest extends TestCase
         $this->assertEquals(['network_name' => 'vm-network-100'], $exception->getContext());
     }
 
+    /**
+
+
+     * @covers \VmManagement\Exceptions\NetworkException
+
+
+     */
+
+
     public function testInvalidNetworkConfig(): void
     {
         $exception = NetworkException::invalidNetworkConfig('user4', 'Unknown user');
@@ -61,6 +103,15 @@ class NetworkExceptionTest extends TestCase
         $this->assertEquals(NetworkException::ERROR_INVALID_NETWORK_CONFIG, $exception->getCode());
         $this->assertEquals(['user' => 'user4', 'reason' => 'Unknown user'], $exception->getContext());
     }
+
+    /**
+
+
+     * @covers \VmManagement\Exceptions\NetworkException
+
+
+     */
+
 
     public function testDhcpLeaseFailed(): void
     {
@@ -72,6 +123,15 @@ class NetworkExceptionTest extends TestCase
         $this->assertEquals(['network_name' => 'vm-network-100'], $exception->getContext());
     }
 
+    /**
+
+
+     * @covers \VmManagement\Exceptions\NetworkException
+
+
+     */
+
+
     public function testDhcpLeaseFailedWithLibvirtError(): void
     {
         $exception = NetworkException::dhcpLeaseFailed('vm-network-100', 'Network not active');
@@ -81,6 +141,15 @@ class NetworkExceptionTest extends TestCase
         $this->assertEquals(NetworkException::ERROR_DHCP_LEASE_FAILED, $exception->getCode());
         $this->assertEquals(['network_name' => 'vm-network-100', 'libvirt_error' => 'Network not active'], $exception->getContext());
     }
+
+    /**
+
+
+     * @covers \VmManagement\Exceptions\NetworkException
+
+
+     */
+
 
     public function testIpAddressNotFound(): void
     {

@@ -12,6 +12,12 @@ use VmManagement\Exceptions\ValidationException;
  */
 class ValidationExceptionTest extends TestCase
 {
+    /**
+
+     * @covers \VmManagement\Exceptions\ValidationException
+
+     */
+
     public function testInvalidVMNameException(): void
     {
         $exception = ValidationException::invalidVMName('test-vm', 'contains invalid characters');
@@ -21,6 +27,15 @@ class ValidationExceptionTest extends TestCase
         $this->assertEquals(ValidationException::ERROR_INVALID_VM_NAME, $exception->getCode());
         $this->assertEquals(['vm_name' => 'test-vm', 'reason' => 'contains invalid characters'], $exception->getContext());
     }
+
+    /**
+
+
+     * @covers \VmManagement\Exceptions\ValidationException
+
+
+     */
+
 
     public function testInvalidUserException(): void
     {
@@ -32,6 +47,15 @@ class ValidationExceptionTest extends TestCase
         $this->assertEquals(['user' => 'invalid-user', 'valid_users' => ['user1', 'user2', 'user3']], $exception->getContext());
     }
 
+    /**
+
+
+     * @covers \VmManagement\Exceptions\ValidationException
+
+
+     */
+
+
     public function testInvalidCPUException(): void
     {
         $exception = ValidationException::invalidCPU(0);
@@ -41,6 +65,15 @@ class ValidationExceptionTest extends TestCase
         $this->assertEquals(ValidationException::ERROR_INVALID_CPU, $exception->getCode());
         $this->assertEquals(['cpu' => 0, 'min' => 1, 'max' => 16], $exception->getContext());
     }
+
+    /**
+
+
+     * @covers \VmManagement\Exceptions\ValidationException
+
+
+     */
+
 
     public function testInvalidMemoryException(): void
     {
@@ -52,6 +85,15 @@ class ValidationExceptionTest extends TestCase
         $this->assertEquals(['memory' => 256, 'min' => 512, 'max' => 32768], $exception->getContext());
     }
 
+    /**
+
+
+     * @covers \VmManagement\Exceptions\ValidationException
+
+
+     */
+
+
     public function testInvalidDiskException(): void
     {
         $exception = ValidationException::invalidDisk(5);
@@ -61,6 +103,15 @@ class ValidationExceptionTest extends TestCase
         $this->assertEquals(ValidationException::ERROR_INVALID_DISK, $exception->getCode());
         $this->assertEquals(['disk' => 5, 'min' => 10, 'max' => 1000], $exception->getContext());
     }
+
+    /**
+
+
+     * @covers \VmManagement\Exceptions\ValidationException
+
+
+     */
+
 
     public function testEmptyParameterException(): void
     {
@@ -72,6 +123,15 @@ class ValidationExceptionTest extends TestCase
         $this->assertEquals(['parameter' => 'name'], $exception->getContext());
     }
 
+    /**
+
+
+     * @covers \VmManagement\Exceptions\ValidationException
+
+
+     */
+
+
     public function testParameterTooLongException(): void
     {
         $exception = ValidationException::parameterTooLong('name', 51, 50);
@@ -81,6 +141,15 @@ class ValidationExceptionTest extends TestCase
         $this->assertEquals(ValidationException::ERROR_PARAMETER_TOO_LONG, $exception->getCode());
         $this->assertEquals(['parameter' => 'name', 'length' => 51, 'max_length' => 50], $exception->getContext());
     }
+
+    /**
+
+
+     * @covers \VmManagement\Exceptions\ValidationException
+
+
+     */
+
 
     public function testInvalidCharactersException(): void
     {
@@ -92,6 +161,15 @@ class ValidationExceptionTest extends TestCase
         $this->assertEquals(['parameter' => 'name', 'value' => 'test vm!'], $exception->getContext());
     }
 
+    /**
+
+
+     * @covers \VmManagement\Exceptions\ValidationException
+
+
+     */
+
+
     public function testParameterOutOfRangeException(): void
     {
         $exception = ValidationException::parameterOutOfRange('cpu', 17, 1, 16);
@@ -101,6 +179,15 @@ class ValidationExceptionTest extends TestCase
         $this->assertEquals(ValidationException::ERROR_PARAMETER_OUT_OF_RANGE, $exception->getCode());
         $this->assertEquals(['parameter' => 'cpu', 'value' => 17, 'min' => 1, 'max' => 16], $exception->getContext());
     }
+
+    /**
+
+
+     * @covers \VmManagement\Exceptions\ValidationException
+
+
+     */
+
 
     public function testContextCanBeSetAndRetrieved(): void
     {

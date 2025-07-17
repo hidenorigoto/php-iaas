@@ -7,6 +7,7 @@ namespace VmManagement\Tests\Unit;
 use Monolog\Handler\TestHandler;
 use Monolog\Logger;
 use PHPUnit\Framework\TestCase;
+use VmManagement\Exceptions\LibvirtConnectionException;
 use VmManagement\Exceptions\ValidationException;
 use VmManagement\SimpleVM;
 use VmManagement\VMManager;
@@ -29,6 +30,15 @@ class VMManagerTest extends TestCase
         $this->vmManager = new VMManager($logger);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testVMManagerCanBeInstantiated(): void
     {
         $vmManager = new VMManager();
@@ -37,6 +47,15 @@ class VMManagerTest extends TestCase
         $this->assertInstanceOf(Logger::class, $vmManager->getLogger());
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testVMManagerWithCustomLogger(): void
     {
         $logger = new Logger('custom');
@@ -44,6 +63,15 @@ class VMManagerTest extends TestCase
 
         $this->assertSame($logger, $vmManager->getLogger());
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testMonologLoggingWorks(): void
     {
@@ -60,6 +88,15 @@ class VMManagerTest extends TestCase
         $this->assertEquals(['key' => 'value'], $records[1]['context']);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testValidVMParamsPassValidation(): void
     {
         $params = [
@@ -74,6 +111,15 @@ class VMManagerTest extends TestCase
         $this->vmManager->validateVMParams($params);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testValidVMParamsWithMinimalData(): void
     {
         $params = [
@@ -85,6 +131,15 @@ class VMManagerTest extends TestCase
         $this->vmManager->validateVMParams($params);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testInvalidVMNameThrowsException(): void
     {
         $this->expectException(ValidationException::class);
@@ -92,6 +147,15 @@ class VMManagerTest extends TestCase
 
         $this->vmManager->validateVMParams(['user' => 'user1']);
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testEmptyVMNameThrowsException(): void
     {
@@ -101,6 +165,15 @@ class VMManagerTest extends TestCase
         $this->vmManager->validateVMParams(['name' => '', 'user' => 'user1']);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testInvalidVMNameCharactersThrowsException(): void
     {
         $this->expectException(ValidationException::class);
@@ -108,6 +181,15 @@ class VMManagerTest extends TestCase
 
         $this->vmManager->validateVMParams(['name' => 'test vm!', 'user' => 'user1']);
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testTooLongVMNameThrowsException(): void
     {
@@ -118,6 +200,15 @@ class VMManagerTest extends TestCase
         $this->vmManager->validateVMParams(['name' => $longName, 'user' => 'user1']);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testInvalidUserThrowsException(): void
     {
         $this->expectException(ValidationException::class);
@@ -126,6 +217,15 @@ class VMManagerTest extends TestCase
         $this->vmManager->validateVMParams(['name' => 'test-vm']);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testUnknownUserThrowsException(): void
     {
         $this->expectException(ValidationException::class);
@@ -133,6 +233,15 @@ class VMManagerTest extends TestCase
 
         $this->vmManager->validateVMParams(['name' => 'test-vm', 'user' => 'unknown']);
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testInvalidCPUThrowsException(): void
     {
@@ -146,6 +255,15 @@ class VMManagerTest extends TestCase
         ]);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testInvalidMemoryThrowsException(): void
     {
         $this->expectException(ValidationException::class);
@@ -158,6 +276,15 @@ class VMManagerTest extends TestCase
         ]);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testInvalidDiskThrowsException(): void
     {
         $this->expectException(ValidationException::class);
@@ -169,6 +296,15 @@ class VMManagerTest extends TestCase
             'disk' => 5,
         ]);
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testCreateVMInstanceWithValidParams(): void
     {
@@ -191,6 +327,15 @@ class VMManagerTest extends TestCase
         $this->assertEquals(101, $vm->vlanId);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testCreateVMInstanceWithDefaultValues(): void
     {
         $params = [
@@ -209,6 +354,15 @@ class VMManagerTest extends TestCase
         $this->assertEquals(100, $vm->vlanId);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testCreateVMInstanceWithInvalidParamsThrowsException(): void
     {
         $this->expectException(ValidationException::class);
@@ -220,6 +374,15 @@ class VMManagerTest extends TestCase
 
         $this->vmManager->createVMInstance($params);
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testValidationLogsSuccessfulValidation(): void
     {
@@ -234,6 +397,15 @@ class VMManagerTest extends TestCase
         $this->assertCount(2, $records); // 1 from constructor + 1 from validation
         $this->assertStringContainsString('VM parameters validated successfully', $records[1]['message']);
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testCreateVMInstanceLogsCreation(): void
     {
@@ -251,15 +423,42 @@ class VMManagerTest extends TestCase
 
     // Libvirt Connection Tests
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testIsConnectedReturnsFalseInitially(): void
     {
         $this->assertFalse($this->vmManager->isConnected());
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testGetConnectionReturnsNullInitially(): void
     {
         $this->assertNull($this->vmManager->getConnection());
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testConnectSuccessWithMockedLibvirt(): void
     {
@@ -345,6 +544,15 @@ class VMManagerTest extends TestCase
         $this->assertNotEmpty($successLogs);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testConnectFailureWithMockedLibvirt(): void
     {
         // Create a mock function namespace that returns false
@@ -407,6 +615,15 @@ class VMManagerTest extends TestCase
         });
         $this->assertNotEmpty($errorLogs);
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testConnectWhenAlreadyConnected(): void
     {
@@ -485,6 +702,15 @@ class VMManagerTest extends TestCase
         $this->assertNotEmpty($alreadyConnectedLogs);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testDisconnectWhenConnected(): void
     {
         // Create a test manager that simulates connected state
@@ -549,6 +775,15 @@ class VMManagerTest extends TestCase
         $this->assertNotEmpty($disconnectLogs);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testDisconnectWhenNotConnected(): void
     {
         $result = $this->vmManager->disconnect();
@@ -565,6 +800,15 @@ class VMManagerTest extends TestCase
 
     // Storage Pool and Volume Management Tests
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testGetStoragePoolWhenNotConnected(): void
     {
         $result = $this->vmManager->getStoragePool();
@@ -578,6 +822,15 @@ class VMManagerTest extends TestCase
         });
         $this->assertNotEmpty($errorLogs);
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testGetStoragePoolSuccessWithMock(): void
     {
@@ -643,6 +896,15 @@ class VMManagerTest extends TestCase
         $this->assertNotEmpty($successLogs);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testGetStoragePoolFailureWithMock(): void
     {
         // Create a test manager that mocks failed storage pool lookup
@@ -702,6 +964,15 @@ class VMManagerTest extends TestCase
         });
         $this->assertNotEmpty($errorLogs);
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testCreateDiskVolumeSuccessWithMock(): void
     {
@@ -784,6 +1055,15 @@ class VMManagerTest extends TestCase
         $this->assertNotEmpty($successLogs);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testCreateDiskVolumeFailureWhenStoragePoolNotFound(): void
     {
         // Create a test manager that mocks storage pool lookup failure
@@ -853,6 +1133,15 @@ class VMManagerTest extends TestCase
         $this->assertNotEmpty($errorLogs);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testCreateQcow2ImageSuccessWithMock(): void
     {
         // Create a test manager that mocks successful qcow2 image creation
@@ -895,6 +1184,15 @@ class VMManagerTest extends TestCase
         });
         $this->assertNotEmpty($successLogs);
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testCreateQcow2ImageWithBaseImageMock(): void
     {
@@ -954,6 +1252,15 @@ class VMManagerTest extends TestCase
         $this->assertNotEmpty($successLogs);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testCopyBaseImageSuccessWithMock(): void
     {
         // Create a test manager that mocks successful base image copying
@@ -1009,6 +1316,15 @@ class VMManagerTest extends TestCase
         $this->assertNotEmpty($successLogs);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testCopyBaseImageFailureWhenSourceNotExists(): void
     {
         // Create a test manager that mocks missing source file
@@ -1055,6 +1371,15 @@ class VMManagerTest extends TestCase
 
     // VLAN Network Management Tests
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testGenerateNetworkXmlForUser1(): void
     {
         $xml = $this->vmManager->generateNetworkXml(100);
@@ -1073,6 +1398,15 @@ class VMManagerTest extends TestCase
         $this->assertNotEmpty($debugLogs);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testGenerateNetworkXmlForUser2(): void
     {
         $xml = $this->vmManager->generateNetworkXml(101);
@@ -1083,6 +1417,15 @@ class VMManagerTest extends TestCase
         $this->assertStringContainsString('<range start=\'192.168.101.10\' end=\'192.168.101.100\'/>', $xml);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testGenerateNetworkXmlForUser3(): void
     {
         $xml = $this->vmManager->generateNetworkXml(102);
@@ -1092,6 +1435,15 @@ class VMManagerTest extends TestCase
         $this->assertStringContainsString('<ip address=\'192.168.102.1\' netmask=\'255.255.255.0\'>', $xml);
         $this->assertStringContainsString('<range start=\'192.168.102.10\' end=\'192.168.102.100\'/>', $xml);
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testGetUserIPRangeForUser1(): void
     {
@@ -1112,6 +1464,15 @@ class VMManagerTest extends TestCase
         $this->assertNotEmpty($debugLogs);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testGetUserIPRangeForUser2(): void
     {
         $ipRange = $this->vmManager->getUserIPRange('user2');
@@ -1124,6 +1485,15 @@ class VMManagerTest extends TestCase
         $this->assertEquals(101, $ipRange['vlan_id']);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testGetUserIPRangeForUser3(): void
     {
         $ipRange = $this->vmManager->getUserIPRange('user3');
@@ -1135,6 +1505,15 @@ class VMManagerTest extends TestCase
         $this->assertEquals('192.168.102.100', $ipRange['dhcp_end']);
         $this->assertEquals(102, $ipRange['vlan_id']);
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testGetUserIPRangeForInvalidUser(): void
     {
@@ -1150,6 +1529,15 @@ class VMManagerTest extends TestCase
         $this->assertNotEmpty($errorLogs);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testGetNetworkNameForValidUsers(): void
     {
         $this->assertEquals('vm-network-100', $this->vmManager->getNetworkName('user1'));
@@ -1157,10 +1545,28 @@ class VMManagerTest extends TestCase
         $this->assertEquals('vm-network-102', $this->vmManager->getNetworkName('user3'));
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testGetNetworkNameForInvalidUser(): void
     {
         $this->assertFalse($this->vmManager->getNetworkName('invalid_user'));
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testCreateUserNetworkWhenNotConnected(): void
     {
@@ -1176,6 +1582,15 @@ class VMManagerTest extends TestCase
         $this->assertNotEmpty($errorLogs);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testCreateUserNetworkWithInvalidUser(): void
     {
         $result = $this->vmManager->createUserNetwork('invalid_user');
@@ -1189,6 +1604,15 @@ class VMManagerTest extends TestCase
         });
         $this->assertNotEmpty($errorLogs);
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testCreateUserNetworkSuccessWithMock(): void
     {
@@ -1269,6 +1693,15 @@ class VMManagerTest extends TestCase
         $this->assertNotEmpty($successLogs);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testNetworkExistsWhenNotConnected(): void
     {
         $result = $this->vmManager->networkExists('user1');
@@ -1276,12 +1709,30 @@ class VMManagerTest extends TestCase
         $this->assertFalse($result);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testNetworkExistsWithInvalidUser(): void
     {
         $result = $this->vmManager->networkExists('invalid_user');
 
         $this->assertFalse($result);
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testNetworkExistsSuccessWithMock(): void
     {
@@ -1346,6 +1797,15 @@ class VMManagerTest extends TestCase
         $this->assertNotEmpty($debugLogs);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testNetworkExistsFailureWithMock(): void
     {
         // Create a test manager that mocks network doesn't exist
@@ -1409,6 +1869,15 @@ class VMManagerTest extends TestCase
         $this->assertNotEmpty($debugLogs);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testEnsureUserNetworkWhenNetworkExists(): void
     {
         // Create a test manager that mocks network already exists
@@ -1449,6 +1918,15 @@ class VMManagerTest extends TestCase
         });
         $this->assertNotEmpty($debugLogs);
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testEnsureUserNetworkWhenNetworkDoesNotExist(): void
     {
@@ -1505,6 +1983,15 @@ class VMManagerTest extends TestCase
         $this->assertNotEmpty($successLogs);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testBuildVMConfigGeneratesValidXML(): void
     {
         $vm = new SimpleVM('test-vm', 'user1', 2, 2048, 20);
@@ -1547,6 +2034,15 @@ class VMManagerTest extends TestCase
         $this->assertTrue($this->testHandler->hasInfoThatContains('Building VM configuration XML'));
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testBuildVMConfigAppliesMemoryConversion(): void
     {
         $vm = new SimpleVM('test-vm', 'user1', 2, 4096, 20);
@@ -1573,6 +2069,15 @@ class VMManagerTest extends TestCase
         $this->assertEquals('KiB', $currentMemoryNode->getAttribute('unit'));
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testBuildVMConfigSetsCPUCount(): void
     {
         $vm = new SimpleVM('test-vm', 'user2', 4, 2048, 20);
@@ -1590,6 +2095,15 @@ class VMManagerTest extends TestCase
         $this->assertEquals('4', $vcpuNode->nodeValue);
         $this->assertEquals('static', $vcpuNode->getAttribute('placement'));
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testBuildVMConfigSetsDiskPath(): void
     {
@@ -1621,6 +2135,15 @@ class VMManagerTest extends TestCase
         $this->assertEquals('qemu', $diskDriver->getAttribute('name'));
         $this->assertEquals('qcow2', $diskDriver->getAttribute('type'));
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testBuildVMConfigAssignsCorrectNetworkForEachUser(): void
     {
@@ -1655,6 +2178,15 @@ class VMManagerTest extends TestCase
         }
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testBuildVMConfigGeneratesValidMacAddress(): void
     {
         $vm = new SimpleVM('test-vm', 'user1', 2, 2048, 20);
@@ -1688,6 +2220,15 @@ class VMManagerTest extends TestCase
         );
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testBuildVMConfigThrowsExceptionForInvalidUser(): void
     {
         $vm = new SimpleVM('test-vm', 'invalid-user', 2, 2048, 20);
@@ -1702,6 +2243,15 @@ class VMManagerTest extends TestCase
 
         $this->vmManager->buildVMConfig($vm, $diskPath);
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testBuildVMConfigIncludesDefaultSettings(): void
     {
@@ -1728,6 +2278,15 @@ class VMManagerTest extends TestCase
         // Note: Disk size is not directly visible in the XML, it's part of volume creation
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testBuildVMConfigGeneratesUniqueUUIDs(): void
     {
         $vm1 = new SimpleVM('test-vm-1', 'user1', 2, 2048, 20);
@@ -1751,6 +2310,15 @@ class VMManagerTest extends TestCase
 
         $this->assertNotEquals($uuid1, $uuid2, 'Each VM should have a unique UUID');
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testBuildVMConfigGeneratesUniqueMacAddresses(): void
     {
@@ -1784,6 +2352,15 @@ class VMManagerTest extends TestCase
 
         $this->assertNotEquals($mac1, $mac2, 'Each VM should have a unique MAC address');
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testBuildVMConfigIncludesRequiredDevices(): void
     {
@@ -1826,6 +2403,15 @@ class VMManagerTest extends TestCase
         $this->assertNotFalse($kbdinputs);
         $this->assertGreaterThanOrEqual(1, $kbdinputs->length, 'Should have keyboard input');
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testCreateAndStartVMSuccess(): void
     {
@@ -1887,9 +2473,9 @@ class VMManagerTest extends TestCase
             }
 
             /**
-             * @return SimpleVM|false
+             * @return SimpleVM
              */
-            public function createAndStartVM(SimpleVM $vm)
+            public function createAndStartVM(SimpleVM $vm): SimpleVM
             {
                 $this->logInfo('Creating and starting VM', [
                     'vm_name' => $vm->name,
@@ -1905,14 +2491,14 @@ class VMManagerTest extends TestCase
                         'vm_name' => $vm->name,
                     ]);
 
-                    return false;
+                    throw new \VmManagement\Exceptions\ValidationException($e->getMessage());
                 }
 
                 // Ensure connected to libvirt
                 if (! $this->isConnected()) {
                     $this->logError('Failed to connect to libvirt');
 
-                    return false;
+                    throw new \VmManagement\Exceptions\LibvirtConnectionException('Failed to connect to libvirt');
                 }
 
                 // Ensure user network exists
@@ -1921,7 +2507,7 @@ class VMManagerTest extends TestCase
                         'user' => $vm->user,
                     ]);
 
-                    return false;
+                    throw new \VmManagement\Exceptions\NetworkException('Failed to ensure user network');
                 }
 
                 // Create disk volume
@@ -1932,7 +2518,7 @@ class VMManagerTest extends TestCase
                         'disk_size' => $vm->disk,
                     ]);
 
-                    return false;
+                    throw new \VmManagement\Exceptions\VMCreationException('Failed to create disk volume');
                 }
 
                 // Generate VM configuration XML
@@ -1980,26 +2566,53 @@ class VMManagerTest extends TestCase
         $this->assertTrue($this->testHandler->hasInfoThatContains('VM created and started successfully'));
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testCreateAndStartVMFailsOnInvalidParams(): void
     {
         $vm = new SimpleVM('invalid-vm-name!', 'user1', 2, 2048, 20);
 
-        $result = $this->vmManager->createAndStartVM($vm);
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('contains invalid characters');
 
-        $this->assertFalse($result);
-        $this->assertTrue($this->testHandler->hasErrorThatContains('Invalid VM parameters'));
+        $this->vmManager->createAndStartVM($vm);
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testCreateAndStartVMFailsWhenNotConnected(): void
     {
         $vm = new SimpleVM('test-vm', 'user1', 2, 2048, 20);
 
         // VMManager is not connected by default in tests
-        $result = $this->vmManager->createAndStartVM($vm);
+        $this->expectException(LibvirtConnectionException::class);
+        $this->expectExceptionMessage('Failed to connect to libvirt');
 
-        $this->assertFalse($result);
-        $this->assertTrue($this->testHandler->hasErrorThatContains('libvirt_connect function not available'));
+        $this->vmManager->createAndStartVM($vm);
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testGetDomainByNameWhenNotConnected(): void
     {
@@ -2008,6 +2621,15 @@ class VMManagerTest extends TestCase
         $this->assertFalse($result);
         $this->assertTrue($this->testHandler->hasErrorThatContains('Not connected to libvirt'));
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testGetDomainByNameSuccess(): void
     {
@@ -2080,6 +2702,15 @@ class VMManagerTest extends TestCase
         $this->assertTrue($this->testHandler->hasDebugThatContains('Domain not found'));
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testGetDomainStateSuccess(): void
     {
         // Create mock manager with domain info
@@ -2131,6 +2762,15 @@ class VMManagerTest extends TestCase
         $this->assertTrue($this->testHandler->hasDebugThatContains('Domain state retrieved'));
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testIsVMRunning(): void
     {
         // Create mock manager with running VM
@@ -2161,6 +2801,15 @@ class VMManagerTest extends TestCase
         $this->assertFalse($vmManager->isVMRunning('non-existent-vm'));
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testListAllVMsWhenNotConnected(): void
     {
         $result = $this->vmManager->listAllVMs();
@@ -2169,6 +2818,15 @@ class VMManagerTest extends TestCase
         $this->assertEmpty($result);
         $this->assertTrue($this->testHandler->hasErrorThatContains('Not connected to libvirt'));
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testListAllVMsSuccess(): void
     {
@@ -2265,6 +2923,15 @@ class VMManagerTest extends TestCase
         $this->assertFalse($vms['vm3']['active']);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testCreateAndStartVMWithMockedLibvirt(): void
     {
         // Create a more realistic mock with libvirt functions
@@ -2333,9 +3000,9 @@ class VMManagerTest extends TestCase
             }
 
             /**
-             * @return SimpleVM|false
+             * @return SimpleVM
              */
-            public function createAndStartVM(SimpleVM $vm)
+            public function createAndStartVM(SimpleVM $vm): SimpleVM
             {
                 // Call parent implementation but with mocked libvirt functions
                 $this->logInfo('Creating and starting VM', [
@@ -2347,23 +3014,23 @@ class VMManagerTest extends TestCase
                 try {
                     $this->validateVMParams($vm->toArray());
                 } catch (\InvalidArgumentException $e) {
-                    return false;
+                    throw new \VmManagement\Exceptions\ValidationException($e->getMessage());
                 }
 
                 // Connect if needed
                 if (! $this->isConnected() && ! $this->connect()) {
-                    return false;
+                    throw new \VmManagement\Exceptions\LibvirtConnectionException('Failed to connect to libvirt');
                 }
 
                 // Ensure user network
                 if (! $this->ensureUserNetwork($vm->user)) {
-                    return false;
+                    throw new \VmManagement\Exceptions\NetworkException('Failed to ensure user network');
                 }
 
                 // Create disk
                 $diskPath = $this->createDiskVolume($vm->name, $vm->disk);
                 if ($diskPath === false) {
-                    return false;
+                    throw new \VmManagement\Exceptions\VMCreationException('Failed to create disk volume');
                 }
 
                 // Build config
@@ -2404,6 +3071,15 @@ class VMManagerTest extends TestCase
         $this->assertEquals(4096, $result->memory);
         $this->assertEquals(40, $result->disk);
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testGetSSHInfoSuccess(): void
     {
@@ -2479,6 +3155,15 @@ class VMManagerTest extends TestCase
         $this->assertEquals('test-password-123', $vm->password);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testGetSSHInfoFailsWhenVMNotRunning(): void
     {
         $vm = new SimpleVM('test-vm', 'user1', 2, 2048, 20);
@@ -2489,6 +3174,15 @@ class VMManagerTest extends TestCase
         $this->assertFalse($sshInfo);
         $this->assertTrue($this->testHandler->hasErrorThatContains('Failed to get domain for SSH info'));
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testGetSSHInfoFailsWhenNoIPAddress(): void
     {
@@ -2524,6 +3218,15 @@ class VMManagerTest extends TestCase
         $this->assertFalse($sshInfo);
         $this->assertTrue($this->testHandler->hasErrorThatContains('Failed to get IP address'));
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testGetSSHInfoWithExistingPassword(): void
     {
@@ -2565,6 +3268,15 @@ class VMManagerTest extends TestCase
         $this->assertIsArray($sshInfo);
         $this->assertEquals('existing-password', $sshInfo['password']);
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testGetSSHInfoWhenSSHNotReady(): void
     {
@@ -2612,6 +3324,15 @@ class VMManagerTest extends TestCase
         $this->assertTrue($this->testHandler->hasWarningThatContains('SSH not ready yet'));
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testGetVMIPAddressFromDHCPLease(): void
     {
         // Create mock manager with DHCP lease
@@ -2639,6 +3360,15 @@ class VMManagerTest extends TestCase
         $this->assertTrue($this->testHandler->hasInfoThatContains('Found IP from DHCP lease'));
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testGetVMIPAddressFromDomainInterface(): void
     {
         // Create mock manager without DHCP lease but with domain interface
@@ -2664,6 +3394,15 @@ class VMManagerTest extends TestCase
         $this->assertFalse($ipAddress);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testGeneratePassword(): void
     {
         $password1 = $this->vmManager->generatePassword();
@@ -2684,6 +3423,15 @@ class VMManagerTest extends TestCase
         $this->assertMatchesRegularExpression('/[!@#$%^&*()]/', $password1);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testWaitForSSHReady(): void
     {
         // Since we can't easily mock fsockopen and exec,
@@ -2700,6 +3448,15 @@ class VMManagerTest extends TestCase
         $this->assertTrue($params[2]->isOptional());
         $this->assertEquals(60, $params[2]->getDefaultValue());
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testGetDHCPLeases(): void
     {

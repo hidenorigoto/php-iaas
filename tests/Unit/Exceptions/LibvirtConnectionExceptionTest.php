@@ -12,6 +12,12 @@ use VmManagement\Exceptions\LibvirtConnectionException;
  */
 class LibvirtConnectionExceptionTest extends TestCase
 {
+    /**
+
+     * @covers \VmManagement\Exceptions\LibvirtConnectionException
+
+     */
+
     public function testConnectionFailedException(): void
     {
         $exception = LibvirtConnectionException::connectionFailed('qemu:///system');
@@ -21,6 +27,15 @@ class LibvirtConnectionExceptionTest extends TestCase
         $this->assertEquals(LibvirtConnectionException::ERROR_CONNECTION_FAILED, $exception->getCode());
         $this->assertEquals(['uri' => 'qemu:///system'], $exception->getContext());
     }
+
+    /**
+
+
+     * @covers \VmManagement\Exceptions\LibvirtConnectionException
+
+
+     */
+
 
     public function testConnectionFailedWithLibvirtError(): void
     {
@@ -32,6 +47,15 @@ class LibvirtConnectionExceptionTest extends TestCase
         $this->assertEquals(['uri' => 'qemu:///system', 'libvirt_error' => 'Permission denied'], $exception->getContext());
     }
 
+    /**
+
+
+     * @covers \VmManagement\Exceptions\LibvirtConnectionException
+
+
+     */
+
+
     public function testDisconnectionFailedException(): void
     {
         $exception = LibvirtConnectionException::disconnectionFailed();
@@ -41,6 +65,15 @@ class LibvirtConnectionExceptionTest extends TestCase
         $this->assertEquals(LibvirtConnectionException::ERROR_DISCONNECTION_FAILED, $exception->getCode());
         $this->assertEquals([], $exception->getContext());
     }
+
+    /**
+
+
+     * @covers \VmManagement\Exceptions\LibvirtConnectionException
+
+
+     */
+
 
     public function testDisconnectionFailedWithLibvirtError(): void
     {
@@ -52,6 +85,15 @@ class LibvirtConnectionExceptionTest extends TestCase
         $this->assertEquals(['libvirt_error' => 'Internal error'], $exception->getContext());
     }
 
+    /**
+
+
+     * @covers \VmManagement\Exceptions\LibvirtConnectionException
+
+
+     */
+
+
     public function testAlreadyConnectedException(): void
     {
         $exception = LibvirtConnectionException::alreadyConnected();
@@ -62,6 +104,15 @@ class LibvirtConnectionExceptionTest extends TestCase
         $this->assertEquals([], $exception->getContext());
     }
 
+    /**
+
+
+     * @covers \VmManagement\Exceptions\LibvirtConnectionException
+
+
+     */
+
+
     public function testNotConnectedException(): void
     {
         $exception = LibvirtConnectionException::notConnected();
@@ -71,6 +122,15 @@ class LibvirtConnectionExceptionTest extends TestCase
         $this->assertEquals(LibvirtConnectionException::ERROR_NOT_CONNECTED, $exception->getCode());
         $this->assertEquals([], $exception->getContext());
     }
+
+    /**
+
+
+     * @covers \VmManagement\Exceptions\LibvirtConnectionException
+
+
+     */
+
 
     public function testPermissionDeniedException(): void
     {

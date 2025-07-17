@@ -9,6 +9,12 @@ use VmManagement\Test;
 
 class TestTest extends TestCase
 {
+    /**
+
+     * @covers \VmManagement\SimpleVM
+
+     */
+
     public function testHello(): void
     {
         $test = new Test();

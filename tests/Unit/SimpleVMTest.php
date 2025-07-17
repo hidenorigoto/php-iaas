@@ -13,6 +13,9 @@ use VmManagement\SimpleVM;
  */
 class SimpleVMTest extends TestCase
 {
+    /**
+     * @covers \VmManagement\SimpleVM::__construct
+     */
     public function testSimpleVMCanBeInstantiated(): void
     {
         $vm = new SimpleVM('test-vm', 'user1');
@@ -21,6 +24,15 @@ class SimpleVMTest extends TestCase
         $this->assertEquals('test-vm', $vm->name);
         $this->assertEquals('user1', $vm->user);
     }
+
+    /**
+
+
+     * @covers \VmManagement\SimpleVM::__construct
+
+
+     */
+
 
     public function testSimpleVMPropertiesCanBeSet(): void
     {
@@ -39,6 +51,15 @@ class SimpleVMTest extends TestCase
         $this->assertInstanceOf(DateTime::class, $vm->createdAt);
     }
 
+    /**
+
+
+     * @covers \VmManagement\SimpleVM::__construct
+
+
+     */
+
+
     public function testDefaultValuesAreSetCorrectly(): void
     {
         $vm = new SimpleVM('test-vm', 'user1');
@@ -52,6 +73,15 @@ class SimpleVMTest extends TestCase
         $this->assertEquals('', $vm->password);
     }
 
+    /**
+
+
+     * @covers \VmManagement\SimpleVM::getVlanIdForUser
+
+
+     */
+
+
     public function testVlanIdMappingForAllUsers(): void
     {
         $vm1 = new SimpleVM('test-vm1', 'user1');
@@ -63,12 +93,30 @@ class SimpleVMTest extends TestCase
         $this->assertEquals(102, $vm3->vlanId);
     }
 
+    /**
+
+
+     * @covers \VmManagement\SimpleVM::getVlanIdForUser
+
+
+     */
+
+
     public function testVlanIdDefaultsTo100ForUnknownUser(): void
     {
         $vm = new SimpleVM('test-vm', 'unknown-user');
 
         $this->assertEquals(100, $vm->vlanId);
     }
+
+    /**
+
+
+     * @covers \VmManagement\SimpleVM::toArray
+
+
+     */
+
 
     public function testToArrayReturnsCorrectStructure(): void
     {
@@ -94,6 +142,15 @@ class SimpleVMTest extends TestCase
         $this->assertIsString($array['created_at']);
     }
 
+    /**
+
+
+     * @covers \VmManagement\SimpleVM::__construct
+
+
+     */
+
+
     public function testPropertiesCanBeModifiedAfterInstantiation(): void
     {
         $vm = new SimpleVM('test-vm', 'user1');
@@ -107,6 +164,15 @@ class SimpleVMTest extends TestCase
         $this->assertEquals('generated-password', $vm->password);
     }
 
+    /**
+
+
+     * @covers \VmManagement\SimpleVM::updateStatus
+
+
+     */
+
+
     public function testUpdateStatus(): void
     {
         $vm = new SimpleVM('test-vm', 'user1');
@@ -118,6 +184,15 @@ class SimpleVMTest extends TestCase
         $vm->updateStatus('shutoff');
         $this->assertEquals('shutoff', $vm->status);
     }
+
+    /**
+
+
+     * @covers \VmManagement\SimpleVM::setSSHInfo
+
+
+     */
+
 
     public function testSetSSHInfo(): void
     {

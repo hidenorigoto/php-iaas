@@ -12,6 +12,12 @@ use VmManagement\Exceptions\VMCreationException;
  */
 class VMCreationExceptionTest extends TestCase
 {
+    /**
+
+     * @covers \VmManagement\Exceptions\VMCreationException
+
+     */
+
     public function testDomainDefineFailedException(): void
     {
         $exception = VMCreationException::domainDefineFailed('test-vm');
@@ -21,6 +27,15 @@ class VMCreationExceptionTest extends TestCase
         $this->assertEquals(VMCreationException::ERROR_DOMAIN_DEFINE_FAILED, $exception->getCode());
         $this->assertEquals(['vm_name' => 'test-vm'], $exception->getContext());
     }
+
+    /**
+
+
+     * @covers \VmManagement\Exceptions\VMCreationException
+
+
+     */
+
 
     public function testDomainDefineFailedWithLibvirtError(): void
     {
@@ -32,6 +47,15 @@ class VMCreationExceptionTest extends TestCase
         $this->assertEquals(['vm_name' => 'test-vm', 'libvirt_error' => 'Invalid XML'], $exception->getContext());
     }
 
+    /**
+
+
+     * @covers \VmManagement\Exceptions\VMCreationException
+
+
+     */
+
+
     public function testDomainStartFailedException(): void
     {
         $exception = VMCreationException::domainStartFailed('test-vm');
@@ -41,6 +65,15 @@ class VMCreationExceptionTest extends TestCase
         $this->assertEquals(VMCreationException::ERROR_DOMAIN_START_FAILED, $exception->getCode());
         $this->assertEquals(['vm_name' => 'test-vm'], $exception->getContext());
     }
+
+    /**
+
+
+     * @covers \VmManagement\Exceptions\VMCreationException
+
+
+     */
+
 
     public function testDomainNotFound(): void
     {
@@ -52,6 +85,15 @@ class VMCreationExceptionTest extends TestCase
         $this->assertEquals(['vm_name' => 'test-vm'], $exception->getContext());
     }
 
+    /**
+
+
+     * @covers \VmManagement\Exceptions\VMCreationException
+
+
+     */
+
+
     public function testStoragePoolNotFound(): void
     {
         $exception = VMCreationException::storagePoolNotFound('default');
@@ -61,6 +103,15 @@ class VMCreationExceptionTest extends TestCase
         $this->assertEquals(VMCreationException::ERROR_STORAGE_POOL_NOT_FOUND, $exception->getCode());
         $this->assertEquals(['pool_name' => 'default'], $exception->getContext());
     }
+
+    /**
+
+
+     * @covers \VmManagement\Exceptions\VMCreationException
+
+
+     */
+
 
     public function testVolumeCreateFailed(): void
     {
@@ -72,6 +123,15 @@ class VMCreationExceptionTest extends TestCase
         $this->assertEquals(['volume_name' => 'test-vm.qcow2'], $exception->getContext());
     }
 
+    /**
+
+
+     * @covers \VmManagement\Exceptions\VMCreationException
+
+
+     */
+
+
     public function testDiskImageFailed(): void
     {
         $exception = VMCreationException::diskImageFailed('/path/to/disk.qcow2', 'Insufficient space');
@@ -81,6 +141,15 @@ class VMCreationExceptionTest extends TestCase
         $this->assertEquals(VMCreationException::ERROR_DISK_IMAGE_FAILED, $exception->getCode());
         $this->assertEquals(['image_path' => '/path/to/disk.qcow2', 'error' => 'Insufficient space'], $exception->getContext());
     }
+
+    /**
+
+
+     * @covers \VmManagement\Exceptions\VMCreationException
+
+
+     */
+
 
     public function testXmlGenerationFailed(): void
     {
@@ -92,6 +161,15 @@ class VMCreationExceptionTest extends TestCase
         $this->assertEquals(['vm_name' => 'test-vm', 'error' => 'Invalid network configuration'], $exception->getContext());
     }
 
+    /**
+
+
+     * @covers \VmManagement\Exceptions\VMCreationException
+
+
+     */
+
+
     public function testVmAlreadyExists(): void
     {
         $exception = VMCreationException::vmAlreadyExists('test-vm');
@@ -101,6 +179,15 @@ class VMCreationExceptionTest extends TestCase
         $this->assertEquals(VMCreationException::ERROR_VM_ALREADY_EXISTS, $exception->getCode());
         $this->assertEquals(['vm_name' => 'test-vm'], $exception->getContext());
     }
+
+    /**
+
+
+     * @covers \VmManagement\Exceptions\VMCreationException
+
+
+     */
+
 
     public function testSshInfoFailed(): void
     {

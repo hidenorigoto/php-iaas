@@ -45,7 +45,9 @@ class WebInterfaceTest extends TestCase
                     throw new VMManagementException('Failed to create VM');
                 }
 
-                return true;
+                $vm->status = 'running';
+
+                return $vm;
             });
 
         $vmManager->method('getSSHInfo')
@@ -194,6 +196,15 @@ class WebInterfaceTest extends TestCase
         }
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testHomePageDisplaysForm(): void
     {
         $request = $this->requestFactory->createRequest('GET', '/');
@@ -211,6 +222,15 @@ class WebInterfaceTest extends TestCase
         $this->assertStringContainsString('option value="user2"', $body);
         $this->assertStringContainsString('option value="user3"', $body);
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testCreateVMWithValidDataReturnsSuccess(): void
     {
@@ -234,6 +254,15 @@ class WebInterfaceTest extends TestCase
         $this->assertStringContainsString('VM Created Successfully', $body);
         $this->assertStringContainsString('test-vm', $body);
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testCreateVMWithJSONRequestReturnsJSON(): void
     {
@@ -268,6 +297,15 @@ class WebInterfaceTest extends TestCase
         $this->assertEquals('192.168.100.10', $responseData['ssh_info']['ip']);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testCreateVMWithMissingDataReturnsError(): void
     {
         $data = [
@@ -287,6 +325,15 @@ class WebInterfaceTest extends TestCase
         $this->assertStringContainsString('Error', $body);
         $this->assertStringContainsString('VM name and user are required', $body);
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testCreateVMWithJSONErrorReturnsJSONError(): void
     {
@@ -311,6 +358,15 @@ class WebInterfaceTest extends TestCase
         $this->assertEquals('Failed to create VM', $responseData['error']);
         $this->assertArrayHasKey('context', $responseData);
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testUserSelectionWorksForAllUsers(): void
     {
@@ -338,6 +394,15 @@ class WebInterfaceTest extends TestCase
         }
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testAPIVMsEndpointReturnsVMList(): void
     {
         $request = $this->requestFactory->createRequest('GET', '/api/vms');
@@ -356,6 +421,15 @@ class WebInterfaceTest extends TestCase
         $this->assertEquals('user1', $responseData['vms'][0]['user']);
         $this->assertEquals('running', $responseData['vms'][0]['status']);
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testAPISSHInfoEndpointReturnsSSHInfo(): void
     {
@@ -376,6 +450,15 @@ class WebInterfaceTest extends TestCase
         $this->assertTrue($responseData['ssh_info']['ready']);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testAPISSHInfoEndpointWithErrorReturnsError(): void
     {
         $request = $this->requestFactory->createRequest('GET', '/api/vm/fail-vm/ssh');
@@ -391,6 +474,15 @@ class WebInterfaceTest extends TestCase
         $this->assertArrayHasKey('ssh_info', $responseData);
         $this->assertEquals('VM is not running', $responseData['ssh_info']['error']);
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testDefaultValuesAreAppliedCorrectly(): void
     {
@@ -416,6 +508,15 @@ class WebInterfaceTest extends TestCase
         $this->assertEquals(20, $responseData['vm']['disk']);
     }
 
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
+
     public function testSSHInfoDisplayedAfterFormSubmission(): void
     {
         $data = [
@@ -437,6 +538,15 @@ class WebInterfaceTest extends TestCase
         $this->assertStringContainsString('test123!', $body);
         $this->assertStringContainsString('ssh ubuntu@192.168.100.10', $body);
     }
+
+    /**
+
+
+     * @covers \VmManagement\VMManager
+
+
+     */
+
 
     public function testSSHInfoErrorDisplayedAfterFormSubmission(): void
     {
