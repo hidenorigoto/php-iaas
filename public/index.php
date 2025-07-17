@@ -105,6 +105,11 @@ $app->post('/create-vm', function (Request $request, Response $response) use ($v
         // Get SSH information
         $sshInfo = $vmManager->getSSHInfo($vm);
 
+        // Handle case when getSSHInfo returns false
+        if ($sshInfo === false) {
+            $sshInfo = ['error' => 'VM is initializing. Cloud-init is configuring the system. This may take up to 2 minutes. Please refresh the page in a moment.'];
+        }
+
         if ($isJsonRequest) {
             $response->getBody()->write(json_encode([
                 'success' => true,

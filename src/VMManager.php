@@ -1550,8 +1550,8 @@ class VMManager
             return false;
         }
 
-        // Get IP address
-        $ipAddress = $this->getVMIPAddress($vm->name, $vm->user);
+        // Get IP address with retry
+        $ipAddress = $this->waitForVMIPAddress($vm->name, $vm->user);
         if ($ipAddress === false) {
             $this->logger->error('Failed to get IP address', ['vm_name' => $vm->name]);
 
@@ -1665,6 +1665,51 @@ class VMManager
         }
 
         $this->logger->error('No IP address found for VM', ['vm_name' => $vmName]);
+
+        return false;
+    }
+
+    /**
+     * Wait for VM to get an IP address
+     *
+     * @param string $vmName VM name
+     * @param string $user User name (for network identification)
+     * @param int $timeout Timeout in seconds (default 120)
+     * @return string|false IP address or false on timeout
+     */
+    private function waitForVMIPAddress(string $vmName, string $user, int $timeout = 120)
+    {
+        $this->logger->info('Waiting for VM to get IP address', [
+            'vm_name' => $vmName,
+            'user' => $user,
+            'timeout' => $timeout,
+        ]);
+
+        $startTime = time();
+        while ((time() - $startTime) < $timeout) {
+            $ipAddress = $this->getVMIPAddress($vmName, $user);
+            if ($ipAddress !== false) {
+                $this->logger->info('VM got IP address', [
+                    'vm_name' => $vmName,
+                    'ip' => $ipAddress,
+                    'elapsed' => time() - $startTime,
+                ]);
+
+                return $ipAddress;
+            }
+
+            $this->logger->debug('Waiting for IP address...', [
+                'vm_name' => $vmName,
+                'elapsed' => time() - $startTime,
+            ]);
+
+            sleep(5); // Check every 5 seconds
+        }
+
+        $this->logger->error('Timeout waiting for VM IP address', [
+            'vm_name' => $vmName,
+            'timeout' => $timeout,
+        ]);
 
         return false;
     }
