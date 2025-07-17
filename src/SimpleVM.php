@@ -94,4 +94,28 @@ class SimpleVM
             'created_at' => $this->createdAt->format('Y-m-d H:i:s'),
         ];
     }
+
+    /**
+     * Update VM status
+     *
+     * @param string $status New status
+     * @return void
+     */
+    public function updateStatus(string $status): void
+    {
+        $this->status = $status;
+    }
+
+    /**
+     * Set SSH connection information
+     *
+     * @param string $ipAddress IP address
+     * @param string $password SSH password
+     * @return void
+     */
+    public function setSSHInfo(string $ipAddress, string $password): void
+    {
+        $this->ipAddress = $ipAddress;
+        $this->password = $password;
+    }
 }

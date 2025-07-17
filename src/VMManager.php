@@ -1027,6 +1027,282 @@ class VMManager
     }
 
     /**
+     * Create and start a virtual machine
+     *
+     * @param SimpleVM $vm VM instance to create and start
+     * @return SimpleVM|false Updated VM instance on success, false on failure
+     */
+    public function createAndStartVM(SimpleVM $vm)
+    {
+        $this->logger->info('Creating and starting VM', [
+            'vm_name' => $vm->name,
+            'user' => $vm->user,
+        ]);
+
+        // Validate parameters
+        try {
+            $this->validateVMParams($vm->toArray());
+        } catch (InvalidArgumentException $e) {
+            $this->logger->error('Invalid VM parameters', [
+                'error' => $e->getMessage(),
+                'vm_name' => $vm->name,
+            ]);
+
+            return false;
+        }
+
+        // Ensure connected to libvirt
+        if (! $this->isConnected() && ! $this->connect()) {
+            $this->logger->error('Failed to connect to libvirt');
+
+            return false;
+        }
+
+        // Ensure user network exists
+        if (! $this->ensureUserNetwork($vm->user)) {
+            $this->logger->error('Failed to ensure user network', [
+                'user' => $vm->user,
+            ]);
+
+            return false;
+        }
+
+        // Create disk volume
+        $diskPath = $this->createDiskVolume($vm->name, $vm->disk);
+        if ($diskPath === false) {
+            $this->logger->error('Failed to create disk volume', [
+                'vm_name' => $vm->name,
+                'disk_size' => $vm->disk,
+            ]);
+
+            return false;
+        }
+
+        // Generate VM configuration XML
+        $vmXml = $this->buildVMConfig($vm, $diskPath);
+
+        // Define the domain
+        if (! function_exists('libvirt_domain_define_xml')) {
+            $this->logger->error('libvirt_domain_define_xml function not available');
+
+            return false;
+        }
+
+        if ($this->libvirtConnection === null) {
+            $this->logger->error('libvirt connection is null');
+
+            return false;
+        }
+
+        $domain = libvirt_domain_define_xml($this->libvirtConnection, $vmXml);
+        if ($domain === false) {
+            $error = $this->getLastLibvirtError();
+            $this->logger->error('Failed to define VM domain', [
+                'vm_name' => $vm->name,
+                'error' => $error,
+            ]);
+
+            return false;
+        }
+
+        $this->logger->info('VM domain defined successfully', ['vm_name' => $vm->name]);
+
+        // Start the VM
+        if (! function_exists('libvirt_domain_create')) {
+            $this->logger->error('libvirt_domain_create function not available');
+
+            return false;
+        }
+
+        $result = libvirt_domain_create($domain);
+        if ($result === false) {
+            $error = $this->getLastLibvirtError();
+            $this->logger->error('Failed to start VM', [
+                'vm_name' => $vm->name,
+                'error' => $error,
+            ]);
+
+            return false;
+        }
+
+        $this->logger->info('VM started successfully', ['vm_name' => $vm->name]);
+
+        // Get VM state to confirm it's running
+        $state = $this->getDomainState($domain);
+        if ($state === false) {
+            $this->logger->warning('Could not verify VM state', ['vm_name' => $vm->name]);
+        } else {
+            $this->logger->info('VM state verified', [
+                'vm_name' => $vm->name,
+                'state' => $state,
+            ]);
+        }
+
+        // Update VM status
+        $vm->status = 'running';
+
+        $this->logger->info('VM created and started successfully', [
+            'vm_name' => $vm->name,
+            'user' => $vm->user,
+            'status' => $vm->status,
+        ]);
+
+        return $vm;
+    }
+
+    /**
+     * Get domain resource by VM name
+     *
+     * @param string $vmName VM name
+     * @return resource|false Domain resource or false on failure
+     */
+    public function getDomainByName(string $vmName)
+    {
+        if (! $this->isConnected()) {
+            $this->logger->error('Not connected to libvirt');
+
+            return false;
+        }
+
+        if (! function_exists('libvirt_domain_lookup_by_name')) {
+            $this->logger->error('libvirt_domain_lookup_by_name function not available');
+
+            return false;
+        }
+
+        $domain = libvirt_domain_lookup_by_name($this->libvirtConnection, $vmName);
+        if ($domain === false) {
+            $error = $this->getLastLibvirtError();
+            $this->logger->debug('Domain not found', [
+                'vm_name' => $vmName,
+                'error' => $error,
+            ]);
+
+            return false;
+        }
+
+        return $domain;
+    }
+
+    /**
+     * Get domain state from domain resource
+     *
+     * @param resource $domain Domain resource
+     * @return string|false State string or false on failure
+     */
+    public function getDomainState($domain)
+    {
+        if (! function_exists('libvirt_domain_get_info')) {
+            $this->logger->error('libvirt_domain_get_info function not available');
+
+            return false;
+        }
+
+        $info = libvirt_domain_get_info($domain);
+        if (! is_array($info)) {
+            $error = $this->getLastLibvirtError();
+            $this->logger->error('Failed to get domain info', ['error' => $error]);
+
+            return false;
+        }
+
+        // Domain states according to libvirt
+        $states = [
+            0 => 'nostate',
+            1 => 'running',
+            2 => 'blocked',
+            3 => 'paused',
+            4 => 'shutdown',
+            5 => 'shutoff',
+            6 => 'crashed',
+            7 => 'pmsuspended',
+        ];
+
+        $stateId = $info['state'] ?? -1;
+        $state = $states[$stateId] ?? 'unknown';
+
+        $this->logger->debug('Domain state retrieved', [
+            'state_id' => $stateId,
+            'state' => $state,
+            'info' => $info,
+        ]);
+
+        return $state;
+    }
+
+    /**
+     * Check if VM is running
+     *
+     * @param string $vmName VM name
+     * @return bool True if running, false otherwise
+     */
+    public function isVMRunning(string $vmName): bool
+    {
+        $domain = $this->getDomainByName($vmName);
+        if ($domain === false) {
+            return false;
+        }
+
+        $state = $this->getDomainState($domain);
+
+        return $state === 'running';
+    }
+
+    /**
+     * List all VMs (equivalent to virsh list --all)
+     *
+     * @return array<string, array<string, mixed>> Array of VM information keyed by name
+     */
+    public function listAllVMs(): array
+    {
+        if (! $this->isConnected()) {
+            $this->logger->error('Not connected to libvirt');
+
+            return [];
+        }
+
+        if (! function_exists('libvirt_list_domains') || ! function_exists('libvirt_list_inactive_domains')) {
+            $this->logger->error('libvirt domain listing functions not available');
+
+            return [];
+        }
+
+        $vms = [];
+
+        // Get active domains
+        $activeDomains = libvirt_list_domains($this->libvirtConnection);
+        if ($activeDomains !== false) {
+            foreach ($activeDomains as $domainName) {
+                $domain = $this->getDomainByName($domainName);
+                if ($domain !== false) {
+                    $state = $this->getDomainState($domain);
+                    $vms[$domainName] = [
+                        'name' => $domainName,
+                        'state' => $state ?: 'unknown',
+                        'active' => true,
+                    ];
+                }
+            }
+        }
+
+        // Get inactive domains
+        $inactiveDomains = libvirt_list_inactive_domains($this->libvirtConnection);
+        if ($inactiveDomains !== false) {
+            foreach ($inactiveDomains as $domainName) {
+                $vms[$domainName] = [
+                    'name' => $domainName,
+                    'state' => 'shutoff',
+                    'active' => false,
+                ];
+            }
+        }
+
+        $this->logger->debug('Listed all VMs', ['count' => count($vms), 'vms' => array_keys($vms)]);
+
+        return $vms;
+    }
+
+    /**
      * Destructor - ensure libvirt connection is closed
      */
     public function __destruct()

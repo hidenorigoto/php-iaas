@@ -106,4 +106,27 @@ class SimpleVMTest extends TestCase
         $this->assertEquals('192.168.100.10', $vm->ipAddress);
         $this->assertEquals('generated-password', $vm->password);
     }
+
+    public function testUpdateStatus(): void
+    {
+        $vm = new SimpleVM('test-vm', 'user1');
+        $this->assertEquals('creating', $vm->status);
+
+        $vm->updateStatus('running');
+        $this->assertEquals('running', $vm->status);
+
+        $vm->updateStatus('shutoff');
+        $this->assertEquals('shutoff', $vm->status);
+    }
+
+    public function testSetSSHInfo(): void
+    {
+        $vm = new SimpleVM('test-vm', 'user1');
+        $this->assertEquals('', $vm->ipAddress);
+        $this->assertEquals('', $vm->password);
+
+        $vm->setSSHInfo('192.168.100.20', 'ssh-password-123');
+        $this->assertEquals('192.168.100.20', $vm->ipAddress);
+        $this->assertEquals('ssh-password-123', $vm->password);
+    }
 }
