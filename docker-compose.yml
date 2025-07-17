@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  php-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/var/www/html
+      - /var/run/libvirt:/var/run/libvirt
+    environment:
+      - PHP_ENV=development
+    depends_on:
+      - libvirt-mock
+    networks:
+      - vm-network
+
+  libvirt-mock:
+    image: ubuntu:22.04
+    command: >
+      bash -c "
+        apt-get update &&
+        apt-get install -y libvirt-daemon-system libvirt-clients qemu-kvm openvswitch-switch &&
+        service libvirtd start &&
+        service openvswitch-switch start &&
+        tail -f /dev/null
+      "
+    privileged: true
+    volumes:
+      - /var/lib/libvirt:/var/lib/libvirt
+      - /var/run/libvirt:/var/run/libvirt
+    networks:
+      - vm-network
+
+networks:
+  vm-network:
+    driver: bridge
