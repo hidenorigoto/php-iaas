@@ -18,20 +18,21 @@ RUN apt-get update && apt-get install -y \
 # Install PHP extensions
 RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
 
-# Install libvirt-php extension
-RUN pecl install libvirt-php && docker-php-ext-enable libvirt
+# Install libvirt-php extension (skip for now, will mock in tests)
+# RUN pecl install libvirt-php && docker-php-ext-enable libvirt
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 # Install pre-commit
-RUN pip3 install pre-commit
+RUN pip3 install pre-commit --break-system-packages
 
 # Set working directory
 WORKDIR /var/www/html
 
 # Copy composer files
-COPY composer.json composer.lock ./
+COPY composer.json ./
+COPY composer.loc[k] ./
 
 # Install PHP dependencies
 RUN composer install --no-scripts --no-autoloader
