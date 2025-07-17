@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace VmManagement\Tests\Unit;
 
-use InvalidArgumentException;
 use Monolog\Handler\TestHandler;
 use Monolog\Logger;
 use PHPUnit\Framework\TestCase;
+use VmManagement\Exceptions\ValidationException;
 use VmManagement\SimpleVM;
 use VmManagement\VMManager;
 
@@ -87,32 +87,32 @@ class VMManagerTest extends TestCase
 
     public function testInvalidVMNameThrowsException(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('VM name is required and must be a string');
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Parameter "name" cannot be empty');
 
         $this->vmManager->validateVMParams(['user' => 'user1']);
     }
 
     public function testEmptyVMNameThrowsException(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('VM name is required and must be a string');
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Parameter "name" cannot be empty');
 
         $this->vmManager->validateVMParams(['name' => '', 'user' => 'user1']);
     }
 
     public function testInvalidVMNameCharactersThrowsException(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('VM name can only contain alphanumeric characters, hyphens, and underscores');
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Parameter "name" contains invalid characters: "test vm!"');
 
         $this->vmManager->validateVMParams(['name' => 'test vm!', 'user' => 'user1']);
     }
 
     public function testTooLongVMNameThrowsException(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('VM name must be 50 characters or less');
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Parameter "name" is too long (51 characters). Maximum allowed: 50');
 
         $longName = str_repeat('a', 51);
         $this->vmManager->validateVMParams(['name' => $longName, 'user' => 'user1']);
@@ -120,24 +120,24 @@ class VMManagerTest extends TestCase
 
     public function testInvalidUserThrowsException(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('User is required and must be a string');
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Parameter "user" cannot be empty');
 
         $this->vmManager->validateVMParams(['name' => 'test-vm']);
     }
 
     public function testUnknownUserThrowsException(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('User must be one of: user1, user2, user3');
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Invalid user "unknown". Must be one of: user1, user2, user3');
 
         $this->vmManager->validateVMParams(['name' => 'test-vm', 'user' => 'unknown']);
     }
 
     public function testInvalidCPUThrowsException(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('CPU must be an integer between 1 and 8');
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Invalid CPU count 0. Must be between 1 and 16');
 
         $this->vmManager->validateVMParams([
             'name' => 'test-vm',
@@ -148,8 +148,8 @@ class VMManagerTest extends TestCase
 
     public function testInvalidMemoryThrowsException(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Memory must be an integer between 512 and 8192 MB');
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Invalid memory 256 MB. Must be between 512 and 32768');
 
         $this->vmManager->validateVMParams([
             'name' => 'test-vm',
@@ -160,8 +160,8 @@ class VMManagerTest extends TestCase
 
     public function testInvalidDiskThrowsException(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Disk must be an integer between 10 and 100 GB');
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Invalid disk size 5 GB. Must be between 10 and 1000');
 
         $this->vmManager->validateVMParams([
             'name' => 'test-vm',
@@ -211,7 +211,7 @@ class VMManagerTest extends TestCase
 
     public function testCreateVMInstanceWithInvalidParamsThrowsException(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(ValidationException::class);
 
         $params = [
             'name' => '',

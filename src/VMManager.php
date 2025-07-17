@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace VmManagement;
 
-use InvalidArgumentException;
 use Monolog\Handler\RotatingFileHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Logger;
+use VmManagement\Exceptions\ValidationException;
 
 // Define libvirt constants if not already defined
 if (! defined('VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE')) {
@@ -46,7 +46,13 @@ class VMManager
     public function __construct(?Logger $logger = null)
     {
         $this->logger = $logger ?? $this->createDefaultLogger();
-        $this->logger->info('VMManager initialized');
+        $this->logger->info('VMManager initialized', [
+            'php_version' => PHP_VERSION,
+            'memory_limit' => ini_get('memory_limit'),
+            'max_execution_time' => ini_get('max_execution_time'),
+            'libvirt_uri' => self::LIBVIRT_URI,
+            'user_vlan_mapping' => self::USER_VLAN_MAP,
+        ]);
     }
 
     /**
@@ -58,13 +64,37 @@ class VMManager
     {
         $logger = new Logger('vm-management');
 
+        // Add processor for unique request ID and system context
+        $logger->pushProcessor(function ($record) {
+            $record->extra['request_id'] = uniqid();
+            $record->extra['process_id'] = getmypid();
+            $record->extra['memory_usage'] = memory_get_usage(true);
+            $record->extra['peak_memory'] = memory_get_peak_usage(true);
+
+            return $record;
+        });
+
+        // Ensure log directory exists
+        $logDir = __DIR__ . '/../logs';
+        if (! is_dir($logDir)) {
+            mkdir($logDir, 0o755, true);
+        }
+
         // Add rotating file handler for persistent logging
         $fileHandler = new RotatingFileHandler(
-            __DIR__ . '/../logs/vm-management.log',
-            0,
+            $logDir . '/vm-management.log',
+            30, // Keep 30 days of logs
             Logger::INFO
         );
         $logger->pushHandler($fileHandler);
+
+        // Add error-specific log file
+        $errorHandler = new RotatingFileHandler(
+            $logDir . '/vm-management-errors.log',
+            30,
+            Logger::ERROR
+        );
+        $logger->pushHandler($errorHandler);
 
         // Add stream handler for development
         $streamHandler = new StreamHandler('php://stdout', Logger::DEBUG);
@@ -77,54 +107,54 @@ class VMManager
      * Validate VM creation parameters
      *
      * @param array<string, mixed> $params VM parameters
-     * @throws InvalidArgumentException
+     * @throws ValidationException
      */
     public function validateVMParams(array $params): void
     {
         // Validate VM name
         if (empty($params['name']) || ! is_string($params['name'])) {
-            throw new InvalidArgumentException('VM name is required and must be a string');
+            throw ValidationException::emptyParameter('name');
         }
 
         if (! preg_match('/^[a-zA-Z0-9\-_]+$/', $params['name'])) {
-            throw new InvalidArgumentException('VM name can only contain alphanumeric characters, hyphens, and underscores');
+            throw ValidationException::invalidCharacters('name', $params['name']);
         }
 
         if (strlen($params['name']) > 50) {
-            throw new InvalidArgumentException('VM name must be 50 characters or less');
+            throw ValidationException::parameterTooLong('name', strlen($params['name']), 50);
         }
 
         // Validate user
         if (empty($params['user']) || ! is_string($params['user'])) {
-            throw new InvalidArgumentException('User is required and must be a string');
+            throw ValidationException::emptyParameter('user');
         }
 
         if (! array_key_exists($params['user'], self::USER_VLAN_MAP)) {
-            throw new InvalidArgumentException('User must be one of: user1, user2, user3');
+            throw ValidationException::invalidUser($params['user']);
         }
 
         // Validate CPU (optional)
         if (isset($params['cpu'])) {
-            if (! is_int($params['cpu']) || $params['cpu'] < 1 || $params['cpu'] > 8) {
-                throw new InvalidArgumentException('CPU must be an integer between 1 and 8');
+            if (! is_int($params['cpu']) || $params['cpu'] < 1 || $params['cpu'] > 16) {
+                throw ValidationException::invalidCPU($params['cpu']);
             }
         }
 
         // Validate memory (optional)
         if (isset($params['memory'])) {
-            if (! is_int($params['memory']) || $params['memory'] < 512 || $params['memory'] > 8192) {
-                throw new InvalidArgumentException('Memory must be an integer between 512 and 8192 MB');
+            if (! is_int($params['memory']) || $params['memory'] < 512 || $params['memory'] > 32768) {
+                throw ValidationException::invalidMemory($params['memory']);
             }
         }
 
         // Validate disk (optional)
         if (isset($params['disk'])) {
-            if (! is_int($params['disk']) || $params['disk'] < 10 || $params['disk'] > 100) {
-                throw new InvalidArgumentException('Disk must be an integer between 10 and 100 GB');
+            if (! is_int($params['disk']) || $params['disk'] < 10 || $params['disk'] > 1000) {
+                throw ValidationException::invalidDisk($params['disk']);
             }
         }
 
-        $this->logger->info('VM parameters validated successfully', $params);
+        $this->logger->debug('VM parameters validated successfully', $params);
     }
 
     /**
@@ -132,7 +162,7 @@ class VMManager
      *
      * @param array<string, mixed> $params VM parameters
      * @return SimpleVM
-     * @throws InvalidArgumentException
+     * @throws ValidationException
      */
     public function createVMInstance(array $params): SimpleVM
     {
@@ -226,7 +256,7 @@ class VMManager
         $connection = libvirt_connect(self::LIBVIRT_URI);
 
         if ($connection === false) {
-            $error = $this->getLastLibvirtError();
+            $error = $this->getLibvirtError() ?? 'Unknown libvirt error';
             $this->logger->error('Failed to connect to libvirt', [
                 'uri' => self::LIBVIRT_URI,
                 'error' => $error,
@@ -252,6 +282,70 @@ class VMManager
     }
 
     /**
+     * Get the last libvirt error message
+     *
+     * @return string|null
+     */
+    private function getLibvirtError(): ?string
+    {
+        if (function_exists('libvirt_get_last_error')) {
+            $error = libvirt_get_last_error();
+            $this->logger->debug('Retrieved libvirt error', ['error' => $error]);
+
+            return $error;
+        }
+        $this->logger->debug('libvirt_get_last_error function not available');
+
+        return null;
+    }
+
+    /**
+     * Log operation with timing and context
+     *
+     * @param string $operation Operation name
+     * @param array<string, mixed> $context Additional context
+     * @param callable $callback Operation to execute
+     * @return mixed
+     */
+    /*
+    private function logOperation(string $operation, array $context, callable $callback): mixed
+    {
+        $startTime = microtime(true);
+        $startMemory = memory_get_usage(true);
+
+        $this->logger->info("Starting operation: {$operation}", $context);
+
+        try {
+            $result = $callback();
+
+            $duration = microtime(true) - $startTime;
+            $memoryUsed = memory_get_usage(true) - $startMemory;
+
+            $this->logger->info("Operation completed: {$operation}", [
+                'duration_seconds' => round($duration, 4),
+                'memory_used_bytes' => $memoryUsed,
+                'success' => true,
+            ] + $context);
+
+            return $result;
+        } catch (\Exception $e) {
+            $duration = microtime(true) - $startTime;
+            $memoryUsed = memory_get_usage(true) - $startMemory;
+
+            $this->logger->error("Operation failed: {$operation}", [
+                'duration_seconds' => round($duration, 4),
+                'memory_used_bytes' => $memoryUsed,
+                'error' => $e->getMessage(),
+                'exception_class' => get_class($e),
+                'success' => false,
+            ] + $context);
+
+            throw $e;
+        }
+    }
+    */
+
+    /**
      * Disconnect from libvirt daemon
      *
      * @return bool True if disconnection successful, false otherwise
@@ -271,7 +365,7 @@ class VMManager
             $result = libvirt_connect_close($this->libvirtConnection);
 
             if ($result === false) {
-                $error = $this->getLastLibvirtError();
+                $error = $this->getLibvirtError() ?? 'Unknown libvirt error';
                 $this->logger->error('Failed to disconnect from libvirt', ['error' => $error]);
                 $this->libvirtConnection = null;
 
@@ -290,16 +384,6 @@ class VMManager
      *
      * @return string Error message or empty string if no error
      */
-    private function getLastLibvirtError(): string
-    {
-        if (function_exists('libvirt_get_last_error')) {
-            $error = libvirt_get_last_error();
-
-            return is_string($error) ? $error : 'Unknown libvirt error';
-        }
-
-        return 'libvirt_get_last_error function not available';
-    }
 
     /**
      * Get the current libvirt connection resource
@@ -337,7 +421,7 @@ class VMManager
         $pool = libvirt_storagepool_lookup_by_name($this->libvirtConnection, $poolName);
 
         if ($pool === false) {
-            $error = $this->getLastLibvirtError();
+            $error = $this->getLibvirtError() ?? 'Unknown libvirt error';
             $this->logger->error('Failed to lookup storage pool', [
                 'pool_name' => $poolName,
                 'error' => $error,
@@ -386,7 +470,7 @@ class VMManager
         $volume = libvirt_storagevolume_create_xml($pool, $volumeXml);
 
         if ($volume === false) {
-            $error = $this->getLastLibvirtError();
+            $error = $this->getLibvirtError() ?? 'Unknown libvirt error';
             $this->logger->error('Failed to create disk volume', [
                 'volume_name' => $volumeName,
                 'error' => $error,
@@ -481,7 +565,7 @@ class VMManager
         $path = libvirt_storagevolume_get_path($volume);
 
         if ($path === false) {
-            $error = $this->getLastLibvirtError();
+            $error = $this->getLibvirtError() ?? 'Unknown libvirt error';
             $this->logger->error('Failed to get volume path', ['error' => $error]);
 
             return false;
@@ -643,7 +727,7 @@ class VMManager
         $network = libvirt_network_define_xml($this->libvirtConnection, $networkXml);
 
         if ($network === false) {
-            $error = $this->getLastLibvirtError();
+            $error = $this->getLibvirtError() ?? 'Unknown libvirt error';
             $this->logger->error('Failed to define network', [
                 'network_name' => $networkName,
                 'error' => $error,
@@ -685,7 +769,7 @@ class VMManager
         $result = libvirt_network_create($network);
 
         if ($result === false) {
-            $error = $this->getLastLibvirtError();
+            $error = $this->getLibvirtError() ?? 'Unknown libvirt error';
             $this->logger->error('Failed to start network', [
                 'network_name' => $networkName,
                 'error' => $error,
@@ -1047,10 +1131,11 @@ class VMManager
         // Validate parameters
         try {
             $this->validateVMParams($vm->toArray());
-        } catch (InvalidArgumentException $e) {
+        } catch (ValidationException $e) {
             $this->logger->error('Invalid VM parameters', [
                 'error' => $e->getMessage(),
                 'vm_name' => $vm->name,
+                'context' => $e->getContext(),
             ]);
 
             return false;
@@ -1101,7 +1186,7 @@ class VMManager
 
         $domain = libvirt_domain_define_xml($this->libvirtConnection, $vmXml);
         if ($domain === false) {
-            $error = $this->getLastLibvirtError();
+            $error = $this->getLibvirtError() ?? 'Unknown libvirt error';
             $this->logger->error('Failed to define VM domain', [
                 'vm_name' => $vm->name,
                 'error' => $error,
@@ -1121,7 +1206,7 @@ class VMManager
 
         $result = libvirt_domain_create($domain);
         if ($result === false) {
-            $error = $this->getLastLibvirtError();
+            $error = $this->getLibvirtError() ?? 'Unknown libvirt error';
             $this->logger->error('Failed to start VM', [
                 'vm_name' => $vm->name,
                 'error' => $error,
@@ -1177,7 +1262,7 @@ class VMManager
 
         $domain = libvirt_domain_lookup_by_name($this->libvirtConnection, $vmName);
         if ($domain === false) {
-            $error = $this->getLastLibvirtError();
+            $error = $this->getLibvirtError() ?? 'Unknown libvirt error';
             $this->logger->debug('Domain not found', [
                 'vm_name' => $vmName,
                 'error' => $error,
@@ -1205,7 +1290,7 @@ class VMManager
 
         $info = libvirt_domain_get_info($domain);
         if (! is_array($info)) {
-            $error = $this->getLastLibvirtError();
+            $error = $this->getLibvirtError() ?? 'Unknown libvirt error';
             $this->logger->error('Failed to get domain info', ['error' => $error]);
 
             return false;
@@ -1421,7 +1506,7 @@ class VMManager
 
         $interfaces = @libvirt_domain_interface_addresses($domain, VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE);
         if ($interfaces === false) {
-            $error = $this->getLastLibvirtError();
+            $error = $this->getLibvirtError() ?? 'Unknown libvirt error';
             $this->logger->error('Failed to get domain interfaces', [
                 'vm_name' => $vmName,
                 'error' => $error,
@@ -1473,7 +1558,7 @@ class VMManager
 
         $network = @libvirt_network_get($this->libvirtConnection, $networkName);
         if ($network === false) {
-            $error = $this->getLastLibvirtError();
+            $error = $this->getLibvirtError() ?? 'Unknown libvirt error';
             $this->logger->error('Failed to get network', [
                 'network_name' => $networkName,
                 'error' => $error,
@@ -1484,7 +1569,7 @@ class VMManager
 
         $leases = @libvirt_network_get_dhcp_leases($network);
         if ($leases === false) {
-            $error = $this->getLastLibvirtError();
+            $error = $this->getLibvirtError() ?? 'Unknown libvirt error';
             $this->logger->error('Failed to get DHCP leases', [
                 'network_name' => $networkName,
                 'error' => $error,
