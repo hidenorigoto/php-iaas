@@ -1393,6 +1393,28 @@ class VMManager
     }
 
     /**
+     * Alias for listAllVMs() to match web interface expectations
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function listVMs(): array
+    {
+        $allVMs = $this->listAllVMs();
+
+        // Convert to indexed array with simplified format
+        $vms = [];
+        foreach ($allVMs as $vm) {
+            $vms[] = [
+                'name' => $vm['name'],
+                'user' => 'unknown', // We don't track user in VM metadata yet
+                'status' => $vm['state'],
+            ];
+        }
+
+        return $vms;
+    }
+
+    /**
      * Get SSH connection information for a VM
      *
      * @param SimpleVM $vm VM instance
