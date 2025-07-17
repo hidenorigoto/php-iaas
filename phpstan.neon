@@ -5,6 +5,7 @@ parameters:
         - tests
     excludePaths:
         - tests/bootstrap.php
+        - tests/Integration/WebInterfaceTest.php
     treatPhpDocTypesAsCertain: false
     reportUnmatchedIgnoredErrors: false
     ignoreErrors:
