@@ -46,7 +46,7 @@ Docker Composeを使用したlibvirt開発環境の構築とプロジェクト�
 - [ ] VMManagerクラスの基本構造を作成
 
 ## 完了条件
-- [ ] `docker-compose up`でlibvirt環境が起動すること
+- [ ] `docker compose up`でlibvirt環境が起動すること
 - [ ] `composer install`が成功すること
 - [ ] PHPUnitとMockeryライブラリがインストールされること
 - [ ] SimpleVMクラスのユニットテストが通ること

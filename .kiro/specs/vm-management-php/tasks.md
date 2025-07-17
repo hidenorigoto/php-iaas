@@ -7,9 +7,9 @@
   - pre-commitフック設定とGit設定
   - 基本的なテストクラスとサンプルコードの作成
   - **完了条件**:
-    - `docker-compose up -d` でPHP環境が起動すること
-    - `docker-compose exec php-app composer install` が成功すること
-    - `docker-compose exec php-app composer test` でテストが実行されること
+    - `docker compose up -d` でPHP環境が起動すること
+    - `docker compose exec php-app composer install` が成功すること
+    - `docker compose exec php-app composer test` でテストが実行されること
     - 基本的なPSR-4オートローディングが動作すること
   - _要件: 2.1, 2.2, 2.3, 2.4_
 
@@ -49,7 +49,7 @@
     - `VMManager->createDiskVolume()`メソッドが成功時にボリュームパスを返すことをモックテストで確認
   - _要件: 1.2, 1.1_
 
-- [ ] 5. 簡素化されたVLANネットワーク管理機能の実装
+- [x] 5. 簡素化されたVLANネットワーク管理機能の実装
   - user1、user2、user3用の独立したlibvirtネットワーク作成
   - 各ユーザーに固定IPレンジ割り当て（192.168.100.x, 192.168.101.x, 192.168.102.x）
   - `libvirt_network_define_xml()`を使用したネットワーク作成
